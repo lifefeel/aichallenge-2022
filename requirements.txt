@@ -1,0 +1,11 @@
+espnet
+nemo-toolkit
+hydra-core
+pytorch_lightning
+braceexpand
+webdataset
+pandas
+youtokentome
+pyannote.core
+pyannote.metrics
+IPython
