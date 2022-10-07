@@ -9,3 +9,8 @@ youtokentome
 pyannote.core
 pyannote.metrics
 IPython
+ffmpeg-python
+transformers
+editdistance
+pydub
+git+https://github.com/openai/whisper.git
