@@ -1,6 +1,5 @@
 import logging
 import subprocess
-import time
 import os
 from typing import List
 
@@ -8,7 +7,6 @@ import editdistance
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 import soundfile
-import speech_recognition as sr
 
 import espnet
 
@@ -83,17 +81,6 @@ def split_audio_ims_speech(file, dest_path, ims_speech_path='ims-speech'):
     return outputs
 
 
-def recognize_google(file):
-    r = sr.Recognizer()
-    test_speech = sr.AudioFile(file)
-    with test_speech as source:
-        # r.adjust_for_ambient_noise(source)
-        audio = r.record(source)
-    result = r.recognize_google(audio, language='ko-KR', show_all=True)
-
-    return result
-
-
 def convert_to_16k(input_file, tmp_path='./tmp', return_duration=False):
     try:
         os.mkdir(tmp_path)
@@ -113,30 +100,6 @@ def convert_to_16k(input_file, tmp_path='./tmp', return_duration=False):
         return input_file, round(sound_file.duration_seconds, 3)
     else:
         return input_file
-
-
-def predict_google(input_file, split_mode=0, tmp_path='./tmp'):
-    wav_files = get_files_for_asr(input_file, split_mode, tmp_path)
-
-    #
-    # 음성인식 처리
-    #
-    print('\nSpeech recognizing...')
-    outputs = []
-    for wav_file, start_pos, end_pos in wav_files:
-        result = recognize_google(wav_file)
-        transcript = result['alternative'][0]['transcript'] if len(result) > 0 else ''
-
-        try:
-            print(f'recognized :{wav_file}, {transcript}')
-        except UnicodeEncodeError:
-            print(f'recognition failed : {wav_file}')
-
-        time.sleep(0.05)
-
-        outputs.append((transcript, start_pos, end_pos))
-
-    return outputs
 
 
 def get_files_for_asr(input_file, split_mode=0, dest_path='./tmp'):
