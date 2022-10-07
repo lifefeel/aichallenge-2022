@@ -25,6 +25,11 @@ import whisper
 
 from utils.utils import save_to_json
 
+VAD_MODEL_PATH = '/root/sogang_asr/nemo_model/vad_marblenet.nemo'
+ASR_MODEL_PATH = '/root/sogang_asr/whisper_model/medium.pt'
+TOKENIZER_PATH = '/root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/tokenizer'
+NLP_MODEL_PATH = '/root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/epoch-26'
+
 
 def ffmpeg_extract_wav(input_path, output_path):
     input_stream = ffmpeg.input(input_path)
@@ -252,7 +257,8 @@ def main(filepaths):
         #
         # VAD
         #
-        vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained('vad_marblenet')
+        # vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained('vad_marblenet')
+        vad_model = nemo_asr.models.EncDecClassificationModel.restore_from(VAD_MODEL_PATH)
         # Preserve a copy of the full config
         cfg = copy.deepcopy(vad_model._cfg)
         print(OmegaConf.to_yaml(cfg))
@@ -369,7 +375,8 @@ def main(filepaths):
         #
         # Speech Recognition
         #
-        model = whisper.load_model("medium")
+        # model = whisper.load_model("medium")
+        model = whisper.load_model(ASR_MODEL_PATH)
 
         print('model loaded.')
 
@@ -393,10 +400,8 @@ def main(filepaths):
         #
         # Threat Classifier
         #
-        tokenizer = ElectraTokenizer.from_pretrained(
-            '/root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/tokenizer')
-        model = ElectraForSequenceClassification.from_pretrained(
-            '/root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/epoch-26')  # 모델 경로 넣기
+        tokenizer = ElectraTokenizer.from_pretrained(TOKENIZER_PATH)
+        model = ElectraForSequenceClassification.from_pretrained(NLP_MODEL_PATH)  # 모델 경로 넣기
 
         predlist = []
         for text in text_list:
