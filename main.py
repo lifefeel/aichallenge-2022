@@ -282,24 +282,23 @@ def main(filepaths):
     vad_model = nemo_asr.models.EncDecClassificationModel.restore_from(VAD_MODEL_PATH)
     # Preserve a copy of the full config
     cfg = copy.deepcopy(vad_model._cfg)
-    print(OmegaConf.to_yaml(cfg))
+    # print(OmegaConf.to_yaml(cfg))
 
     vad_model.preprocessor = vad_model.from_config_dict(cfg.preprocessor)
     # Set model to inference mode
     vad_model.eval()
     vad_model = vad_model.to(vad_model.device)
 
-    model_definition = {
+    vad_model_definition = {
         'sample_rate': cfg.train_ds.sample_rate,
         'AudioToMFCCPreprocessor': cfg.preprocessor,
         'JasperEncoder': cfg.encoder,
         'labels': cfg.labels
     }
 
-    threshold = 0.3
-
-    STEP_LIST = [0.25]
-    WINDOW_SIZE_LIST = [0.5]
+    vad_window_size = 0.5
+    vad_frame_len = 0.25
+    vad_threshold = 0.3
 
     model_loading_time = time.time() - model_start_time
 
@@ -329,8 +328,6 @@ def main(filepaths):
         'model_loading': model_loading_time,
         'model_running': 0.0
     }
-
-    model_start_time = time.time()
 
     #
     # Threat Classifier
@@ -372,46 +369,33 @@ def main(filepaths):
         #
         # VAD
         #
-        results = []
-
         model_start_time = time.time()
 
-        for STEP, WINDOW_SIZE in zip(STEP_LIST, WINDOW_SIZE_LIST, ):
-            print(f'====== STEP is {STEP}s, WINDOW_SIZE is {WINDOW_SIZE}s ====== ')
-            preds, proba_b, proba_s = offline_inference(enhance_wav_path, vad_model, model_definition, STEP, WINDOW_SIZE, threshold)
-            results.append([STEP, WINDOW_SIZE, preds, proba_b, proba_s])
+        print(f'====== FRAME_LEN is {vad_frame_len}s, WINDOW_SIZE is {vad_window_size}s ====== ')
+        preds, proba_b, proba_s = offline_inference(enhance_wav_path, vad_model, vad_model_definition, vad_frame_len, vad_window_size, vad_threshold)
 
-        # exit()
-        num = len(results)
         speech_ranges = []
 
-        for i in range(num):
-            step = STEP_LIST[i]
-            win_size = WINDOW_SIZE_LIST[i]
-            len_pred = len(results[i][2])
+        last_label = 0
+        start_pos = -0.1
+        end_pos = -0.1
 
-            pred = results[i][2]
+        count = 0
+        for j, label in enumerate(preds):
+            if label == 1 and last_label == 0:
+                start_pos = j
+                last_label = 1
 
-            last_label = 0
-            start_pos = -0.1
-            end_pos = -0.1
+            if label == 0 and last_label == 1:
+                end_pos = j
+                last_label = 0
 
-            count = 0
-            for j, label in enumerate(pred):
-                if label == 1 and last_label == 0:
-                    start_pos = j
-                    last_label = 1
-
-                if label == 0 and last_label == 1:
-                    end_pos = j
-                    last_label = 0
-
-                if start_pos >= 0 and end_pos > 0:
-                    count += 1
-                    print(f'({count}) speech : {start_pos * step:.2f} to {end_pos * step:.2f}')
-                    speech_ranges.append((start_pos * step, end_pos * step))
-                    start_pos = -0.1
-                    end_pos = -0.1
+            if start_pos >= 0 and end_pos > 0:
+                count += 1
+                print(f'({count}) speech : {start_pos * vad_frame_len:.2f} to {end_pos * vad_frame_len:.2f}')
+                speech_ranges.append((start_pos * vad_frame_len, end_pos * vad_frame_len))
+                start_pos = -0.1
+                end_pos = -0.1
 
         save_to_json(speech_ranges, 'vad_infer_result.json')
 
@@ -462,7 +446,7 @@ def main(filepaths):
             start_frame = int(start_time * sr)
             end_frame = int(end_time * sr)
             audio, _ = soundfile.read(wav_path, start=start_frame, stop=end_frame, dtype='float32')
-            audio_list.append(audio)
+            audio_list.append((audio, start_time, end_time))
 
         model_running_time = time.time() - model_start_time
 
@@ -475,7 +459,7 @@ def main(filepaths):
 
         text_list = []
         for audio in audio_list:
-            result = asr_model.transcribe(audio, **whisper_options)
+            result = asr_model.transcribe(audio[0], **whisper_options)
 
             trans = []
             for segment in result['segments']:
@@ -511,7 +495,11 @@ def main(filepaths):
 
     global_running_time = time.time() - global_start_time
 
-    print('=== Statistics ===')
+    print('\n=== Final results ===')
+    for audio, pred_label in zip(audio_list, predlist):
+        print(f'{audio[1]} - {audio[2]} : {pred_label}')
+
+    print('\n=== Statistics ===')
     for module, elem in time_dict.items():
         print(f'{module} : {elem}')
 
@@ -519,6 +507,9 @@ def main(filepaths):
     print(f'total running time : {global_running_time:.2f}')
     print(f'RTF : {global_running_time / total_audio_duration:.4f}')
     print('finished')
+
+    # TODO : 인식한 시간값을 받아와 계산하여 최종 시간으로 변경
+    # 중간 파일을 저장하지 않고 다음 모델로 전달하는 방법
 
 
 if __name__ == '__main__':
