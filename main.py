@@ -1,4 +1,6 @@
 import copy
+import time
+
 import ffmpeg
 import numpy as np
 import os
@@ -218,6 +220,9 @@ def convert(seconds):
 
 
 def main(filepaths):
+    global_start_time = time.time()
+    total_audio_duration = 0.0
+    time_dict = {}
 
     for filepath in filepaths:
         #
@@ -234,10 +239,7 @@ def main(filepaths):
         #
         # Speech Enhancement
         #
-        mixwav_mc, sr = soundfile.read(wav_path)
-        # mixwav.shape: num_samples, num_channels
-        # mixwav_sc = mixwav_mc[:,4]
-        mixwav_sc = mixwav_mc[:]
+        model_start_time = time.time()
 
         enh_model_sc = SeparateSpeech(
             train_config=ENH_CONFIG_PATH,
@@ -251,15 +253,35 @@ def main(filepaths):
             segment_size=120,
             hop_size=96
         )
+        model_loading_time = time.time() - model_start_time
+
+        # Enhancement routine
+        model_start_time = time.time()
+
+        mixwav_mc, sr = soundfile.read(wav_path)
+        # mixwav.shape: num_samples, num_channels
+        # mixwav_sc = mixwav_mc[:,4]
+        mixwav_sc = mixwav_mc[:]
+
+        total_audio_duration += len(mixwav_mc) / float(sr)
 
         enhance_wav_path = os.path.join(out_path, f'{filename}_enhance.wav')
 
         wave = enh_model_sc(mixwav_sc[None, ...], sr)
         soundfile.write(enhance_wav_path, wave[0].squeeze(), sr)
 
+        model_running_time = time.time() - model_start_time
+
+        time_dict['enh'] = {
+            'model_loading': model_loading_time,
+            'model_running': model_running_time,
+        }
+
         #
         # VAD
         #
+        model_start_time = time.time()
+
         # vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained('vad_marblenet')
         vad_model = nemo_asr.models.EncDecClassificationModel.restore_from(VAD_MODEL_PATH)
         # Preserve a copy of the full config
@@ -286,6 +308,10 @@ def main(filepaths):
         # WINDOW_SIZE_LIST = [0.5, 0.5, 0.5]
         STEP_LIST = [0.25]
         WINDOW_SIZE_LIST = [0.5]
+
+        model_loading_time = time.time() - model_start_time
+
+        model_start_time = time.time()
 
         for STEP, WINDOW_SIZE in zip(STEP_LIST, WINDOW_SIZE_LIST, ):
             print(f'====== STEP is {STEP}s, WINDOW_SIZE is {WINDOW_SIZE}s ====== ')
@@ -375,9 +401,18 @@ def main(filepaths):
             audio, _ = soundfile.read(wav_path, start=start_frame, stop=end_frame, dtype='float32')
             audio_list.append(audio)
 
+        model_running_time = time.time() - model_start_time
+
+        time_dict['vad'] = {
+            'model_loading': model_loading_time,
+            'model_running': model_running_time,
+        }
+
         #
         # Speech Recognition
         #
+        model_start_time = time.time()
+
         # model = whisper.load_model("medium")
         model = whisper.load_model(ASR_MODEL_PATH)
 
@@ -387,6 +422,10 @@ def main(filepaths):
             'task': 'transcribe',
             'language': 'Korean'
         }
+
+        model_loading_time = time.time() - model_start_time
+
+        model_start_time = time.time()
 
         text_list = []
         for audio in audio_list:
@@ -399,12 +438,24 @@ def main(filepaths):
 
             text_list.append(' '.join(trans))
 
+        model_running_time = time.time() - model_start_time
+
+        time_dict['asr'] = {
+            'model_loading': model_loading_time,
+            'model_running': model_running_time,
+        }
 
         #
         # Threat Classifier
         #
+        model_start_time = time.time()
+
         tokenizer = ElectraTokenizer.from_pretrained(TOKENIZER_PATH)
         model = ElectraForSequenceClassification.from_pretrained(NLP_MODEL_PATH)  # 모델 경로 넣기
+
+        model_loading_time = time.time() - model_start_time
+
+        model_start_time = time.time()
 
         predlist = []
         for text in text_list:
@@ -418,10 +469,29 @@ def main(filepaths):
 
         print(predlist)
 
+        model_running_time = time.time() - model_start_time
+
+        time_dict['nlp'] = {
+            'model_loading': model_loading_time,
+            'model_running': model_running_time,
+        }
+
+    global_running_time = time.time() - global_start_time
+
+    print('=== Statistics ===')
+    for module, elem in time_dict.items():
+        print(f'{module} : {elem}')
+
+    print(f'\ntotal audio duration : {total_audio_duration:.2f}')
+    print(f'total running time : {global_running_time:.2f}')
+    print(f'RTF : {global_running_time / total_audio_duration:.4f}')
     print('finished')
 
 
 if __name__ == '__main__':
-    filepaths = ['/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4']
+    filepaths = [
+        '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
+        '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
+    ]
 
     main(filepaths)
