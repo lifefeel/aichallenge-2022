@@ -224,10 +224,112 @@ def main(filepaths):
     total_audio_duration = 0.0
     time_dict = {}
 
+    #
+    # Speech Enhancement
+    #
+    model_start_time = time.time()
+
+    enh_model_sc = SeparateSpeech(
+        train_config=ENH_CONFIG_PATH,
+        model_file=ENH_MODEL_PATH,
+        # for segment-wise process on long speech
+        normalize_segment_scale=False,
+        show_progressbar=True,
+        ref_channel=4,
+        normalize_output_wav=True,
+        device="cuda:0",
+        segment_size=120,
+        hop_size=96
+    )
+    model_loading_time = time.time() - model_start_time
+
+    time_dict['enh'] = {
+        'model_loading': model_loading_time,
+        'model_running': 0.0
+    }
+
+    #
+    # VAD
+    #
+    model_start_time = time.time()
+
+    # vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained('vad_marblenet')
+    vad_model = nemo_asr.models.EncDecClassificationModel.restore_from(VAD_MODEL_PATH)
+    # Preserve a copy of the full config
+    cfg = copy.deepcopy(vad_model._cfg)
+    print(OmegaConf.to_yaml(cfg))
+
+    vad_model.preprocessor = vad_model.from_config_dict(cfg.preprocessor)
+    # Set model to inference mode
+    vad_model.eval()
+    vad_model = vad_model.to(vad_model.device)
+
+    model_definition = {
+        'sample_rate': cfg.train_ds.sample_rate,
+        'AudioToMFCCPreprocessor': cfg.preprocessor,
+        'JasperEncoder': cfg.encoder,
+        'labels': cfg.labels
+    }
+
+    threshold = 0.3
+
+    STEP_LIST = [0.25]
+    WINDOW_SIZE_LIST = [0.5]
+
+    model_loading_time = time.time() - model_start_time
+
+    time_dict['vad'] = {
+        'model_loading': model_loading_time,
+        'model_running': 0.0,
+    }
+
+    #
+    # Speech Recognition
+    #
+    model_start_time = time.time()
+
+    # model = whisper.load_model("medium")
+    asr_model = whisper.load_model(ASR_MODEL_PATH)
+
+    print('model loaded.')
+
+    whisper_options = {
+        'task': 'transcribe',
+        'language': 'Korean'
+    }
+
+    model_loading_time = time.time() - model_start_time
+
+    time_dict['asr'] = {
+        'model_loading': model_loading_time,
+        'model_running': 0.0
+    }
+
+    model_start_time = time.time()
+
+    #
+    # Threat Classifier
+    #
+    tokenizer = ElectraTokenizer.from_pretrained(TOKENIZER_PATH)
+    nlp_model = ElectraForSequenceClassification.from_pretrained(NLP_MODEL_PATH)  # 모델 경로 넣기
+
+    model_loading_time = time.time() - model_start_time
+
+    time_dict['nlp'] = {
+        'model_loading': model_loading_time,
+        'model_running': 0.0
+    }
+
+    time_dict['pre'] = {
+        'model_running': 0.0
+    }
+
     for filepath in filepaths:
         #
         # mp4 to wav
         #
+        model_start_time = time.time()
+
         print(f'processing : {filepath}')
         t = tempfile.TemporaryDirectory()
         out_path = t.name
@@ -236,26 +338,13 @@ def main(filepaths):
         wav_path = os.path.join(out_path, f'{filename}.wav')
         ffmpeg_extract_wav(filepath, wav_path)
 
+        model_running_time = time.time() - model_start_time
+
+        time_dict['pre']['model_running'] += model_running_time
+
         #
         # Speech Enhancement
         #
-        model_start_time = time.time()
-
-        enh_model_sc = SeparateSpeech(
-            train_config=ENH_CONFIG_PATH,
-            model_file=ENH_MODEL_PATH,
-            # for segment-wise process on long speech
-            normalize_segment_scale=False,
-            show_progressbar=True,
-            ref_channel=4,
-            normalize_output_wav=True,
-            device="cuda:0",
-            segment_size=120,
-            hop_size=96
-        )
-        model_loading_time = time.time() - model_start_time
-
-        # Enhancement routine
         model_start_time = time.time()
 
         mixwav_mc, sr = soundfile.read(wav_path)
@@ -272,44 +361,12 @@ def main(filepaths):
 
         model_running_time = time.time() - model_start_time
 
-        time_dict['enh'] = {
-            'model_loading': model_loading_time,
-            'model_running': model_running_time,
-        }
+        time_dict['enh']['model_running'] += model_running_time
 
         #
         # VAD
         #
-        model_start_time = time.time()
-
-        # vad_model = nemo_asr.models.EncDecClassificationModel.from_pretrained('vad_marblenet')
-        vad_model = nemo_asr.models.EncDecClassificationModel.restore_from(VAD_MODEL_PATH)
-        # Preserve a copy of the full config
-        cfg = copy.deepcopy(vad_model._cfg)
-        print(OmegaConf.to_yaml(cfg))
-
-        vad_model.preprocessor = vad_model.from_config_dict(cfg.preprocessor)
-        # Set model to inference mode
-        vad_model.eval()
-        vad_model = vad_model.to(vad_model.device)
-
-        model_definition = {
-            'sample_rate': cfg.train_ds.sample_rate,
-            'AudioToMFCCPreprocessor': cfg.preprocessor,
-            'JasperEncoder': cfg.encoder,
-            'labels': cfg.labels
-        }
-
-        threshold = 0.3
-
         results = []
-
-        # STEP_LIST = [0.1, 0.15, 0.2]
-        # WINDOW_SIZE_LIST = [0.5, 0.5, 0.5]
-        STEP_LIST = [0.25]
-        WINDOW_SIZE_LIST = [0.5]
-
-        model_loading_time = time.time() - model_start_time
 
         model_start_time = time.time()
 
@@ -403,33 +460,16 @@ def main(filepaths):
 
         model_running_time = time.time() - model_start_time
 
-        time_dict['vad'] = {
-            'model_loading': model_loading_time,
-            'model_running': model_running_time,
-        }
+        time_dict['vad']['model_running'] += model_running_time
 
         #
         # Speech Recognition
         #
         model_start_time = time.time()
 
-        # model = whisper.load_model("medium")
-        model = whisper.load_model(ASR_MODEL_PATH)
-
-        print('model loaded.')
-
-        options = {
-            'task': 'transcribe',
-            'language': 'Korean'
-        }
-
-        model_loading_time = time.time() - model_start_time
-
-        model_start_time = time.time()
-
         text_list = []
         for audio in audio_list:
-            result = model.transcribe(audio, **options)
+            result = asr_model.transcribe(audio, **whisper_options)
 
             trans = []
             for segment in result['segments']:
@@ -440,41 +480,28 @@ def main(filepaths):
 
         model_running_time = time.time() - model_start_time
 
-        time_dict['asr'] = {
-            'model_loading': model_loading_time,
-            'model_running': model_running_time,
-        }
+        time_dict['asr']['model_running'] += model_running_time
 
         #
         # Threat Classifier
         #
         model_start_time = time.time()
 
-        tokenizer = ElectraTokenizer.from_pretrained(TOKENIZER_PATH)
-        model = ElectraForSequenceClassification.from_pretrained(NLP_MODEL_PATH)  # 모델 경로 넣기
-
-        model_loading_time = time.time() - model_start_time
-
-        model_start_time = time.time()
-
         predlist = []
         for text in text_list:
             inputs = tokenizer(text, return_tensors="pt")
             with torch.no_grad():
-                logits = model(**inputs).logits
+                logits = nlp_model(**inputs).logits
 
             predicted_class_id = logits.argmax().item()
-            pred = model.config.id2label[predicted_class_id]
+            pred = nlp_model.config.id2label[predicted_class_id]
             predlist.append(pred)
 
         print(predlist)
 
         model_running_time = time.time() - model_start_time
 
-        time_dict['nlp'] = {
-            'model_loading': model_loading_time,
-            'model_running': model_running_time,
-        }
+        time_dict['nlp']['model_running'] += model_running_time
 
     global_running_time = time.time() - global_start_time
 
