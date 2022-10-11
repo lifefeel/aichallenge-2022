@@ -25,6 +25,8 @@ import whisper
 
 from utils.utils import save_to_json
 
+ENH_CONFIG_PATH = '/root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/config.yaml'
+ENH_MODEL_PATH = '/root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/5epoch.pth'
 VAD_MODEL_PATH = '/root/sogang_asr/nemo_model/vad_marblenet.nemo'
 ASR_MODEL_PATH = '/root/sogang_asr/whisper_model/medium.pt'
 TOKENIZER_PATH = '/root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/tokenizer'
@@ -237,8 +239,8 @@ def main(filepaths):
         mixwav_sc = mixwav_mc[:]
 
         enh_model_sc = SeparateSpeech(
-            train_config="/root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/config.yaml",
-            model_file="/root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/5epoch.pth",
+            train_config=ENH_CONFIG_PATH,
+            model_file=ENH_MODEL_PATH,
             # for segment-wise process on long speech
             normalize_segment_scale=False,
             show_progressbar=True,
