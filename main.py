@@ -25,12 +25,13 @@ import whisper
 
 from utils.utils import save_to_json
 
-ENH_CONFIG_PATH = '/root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/config.yaml'
-ENH_MODEL_PATH = '/root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/5epoch.pth'
-VAD_MODEL_PATH = '/root/sogang_asr/nemo_model/vad_marblenet.nemo'
-ASR_MODEL_PATH = '/root/sogang_asr/whisper_model/medium.pt'
-TOKENIZER_PATH = '/root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/tokenizer'
-NLP_MODEL_PATH = '/root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/epoch-26'
+MODEL_ROOT = '/root/sogang_asr'
+ENH_CONFIG_PATH = os.path.join(MODEL_ROOT, 'enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/config.yaml')
+ENH_MODEL_PATH = os.path.join(MODEL_ROOT, 'enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/5epoch.pth')
+VAD_MODEL_PATH = os.path.join(MODEL_ROOT, 'nemo_model/vad_marblenet.nemo')
+ASR_MODEL_PATH = os.path.join(MODEL_ROOT, 'whisper_model/medium.pt')
+TOKENIZER_PATH = os.path.join(MODEL_ROOT, 'threat_model/baseline-kcelectra-newnew_train/tokenizer')
+NLP_MODEL_PATH = os.path.join(MODEL_ROOT, 'threat_model/baseline-kcelectra-newnew_train/epoch-26')
 
 
 def ffmpeg_extract_wav(input_path, output_path):
