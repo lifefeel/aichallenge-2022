@@ -223,6 +223,31 @@ def main(filepaths):
     global_start_time = time.time()
     total_audio_duration = 0.0
     time_dict = {}
+    wave_paths = []
+
+    time_dict['pre'] = {
+        'model_running': 0.0
+    }
+
+    t = tempfile.TemporaryDirectory()
+    out_path = t.name
+
+    #
+    # mp4 to wav
+    #
+    for filepath in filepaths:
+        model_start_time = time.time()
+
+        print(f'processing : {filepath}')
+
+        filename, file_extension = os.path.splitext(os.path.basename(filepath))
+        wav_path = os.path.join(out_path, f'{filename}.wav')
+        ffmpeg_extract_wav(filepath, wav_path)
+        wave_paths.append(wav_path)
+
+        model_running_time = time.time() - model_start_time
+
+        time_dict['pre']['model_running'] += model_running_time
 
     #
     # Speech Enhancement
@@ -310,6 +335,8 @@ def main(filepaths):
     #
     # Threat Classifier
     #
+    model_start_time = time.time()
+
     tokenizer = ElectraTokenizer.from_pretrained(TOKENIZER_PATH)
     nlp_model = ElectraForSequenceClassification.from_pretrained(NLP_MODEL_PATH)  # 모델 경로 넣기
 
@@ -320,28 +347,7 @@ def main(filepaths):
         'model_running': 0.0
     }
 
-    time_dict['pre'] = {
-        'model_running': 0.0
-    }
-
-    for filepath in filepaths:
-        #
-        # mp4 to wav
-        #
-        model_start_time = time.time()
-
-        print(f'processing : {filepath}')
-        t = tempfile.TemporaryDirectory()
-        out_path = t.name
-
-        filename, file_extension = os.path.splitext(os.path.basename(filepath))
-        wav_path = os.path.join(out_path, f'{filename}.wav')
-        ffmpeg_extract_wav(filepath, wav_path)
-
-        model_running_time = time.time() - model_start_time
-
-        time_dict['pre']['model_running'] += model_running_time
-
+    for wav_path in wave_paths:
         #
         # Speech Enhancement
         #
