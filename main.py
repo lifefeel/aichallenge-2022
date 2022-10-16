@@ -250,7 +250,7 @@ def main(filepaths):
         time_dict['pre']['model_running'] += model_running_time
 
     #
-    # Speech Enhancement
+    # Load Model: Speech Enhancement
     #
     model_start_time = time.time()
 
@@ -274,7 +274,7 @@ def main(filepaths):
     }
 
     #
-    # VAD
+    # Load Model: VAD
     #
     model_start_time = time.time()
 
@@ -308,7 +308,7 @@ def main(filepaths):
     }
 
     #
-    # Speech Recognition
+    # Load Model: Speech Recognition
     #
     model_start_time = time.time()
 
@@ -330,7 +330,7 @@ def main(filepaths):
     }
 
     #
-    # Threat Classifier
+    # Load Model: Threat Classifier
     #
     model_start_time = time.time()
 
@@ -357,6 +357,7 @@ def main(filepaths):
 
         total_audio_duration += len(mixwav_mc) / float(sr)
 
+        filename, file_extension = os.path.splitext(os.path.basename(wav_path))
         enhance_wav_path = os.path.join(out_path, f'{filename}_enhance.wav')
 
         wave = enh_model_sc(mixwav_sc[None, ...], sr)
@@ -404,6 +405,7 @@ def main(filepaths):
 
         idx = 0
         dialog_ranges = []
+        dialog_min_length = 30
 
         print('=== chunking ===')
         for i, speech_range in enumerate(speech_ranges):
@@ -421,7 +423,7 @@ def main(filepaths):
                 print(
                     f'  chunk({idx}) : {convert(last_start)} - {convert(last_end)} (duration : {last_end - last_start})')
 
-                if last_end - last_start > 30:
+                if last_end - last_start > dialog_min_length:
                     dialog_ranges.append((last_start, last_end))
 
                 last_start = start_time
@@ -433,7 +435,7 @@ def main(filepaths):
                 # concat
                 last_end = end_time
 
-        if last_end - last_start > 30:
+        if last_end - last_start > dialog_min_length:
             dialog_ranges.append((last_start, last_end))
 
         print('=== dialog part ===')
@@ -510,6 +512,7 @@ def main(filepaths):
 
     # TODO : 인식한 시간값을 받아와 계산하여 최종 시간으로 변경
     # 중간 파일을 저장하지 않고 다음 모델로 전달하는 방법
+    # 작년것 EPD 돌려보기
 
 
 if __name__ == '__main__':
