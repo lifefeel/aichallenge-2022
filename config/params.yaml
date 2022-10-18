@@ -7,3 +7,5 @@ model:
     window_size: 0.5
     frame_len: 0.25
     threshold: 0.3
+  speech_recognition:
+    model_path: /root/sogang_asr/whisper_model/medium.pt

@@ -2,6 +2,7 @@ import copy
 import wave
 
 import nemo.collections.asr as nemo_asr
+import whisper
 from nemo.core.classes import IterableDataset
 from nemo.core.neural_types import NeuralType, AudioSignal, LengthsType
 import numpy as np
@@ -252,3 +253,16 @@ class VAD:
                 end_pos = -0.1
 
         return speech_ranges
+
+
+class SpeechRecognition():
+    def __init__(self, params=None, logger=None):
+        self.asr_model = whisper.load_model(params['model_path'])
+
+        self.whisper_options = {
+            'task': 'transcribe',
+            'language': 'Korean'
+        }
+
+    def transcribe(self, audio):
+        return self.asr_model.transcribe(audio, **self.whisper_options)

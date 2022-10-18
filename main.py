@@ -1,38 +1,25 @@
-import copy
 import time
 
 import ffmpeg
-import numpy as np
 import os
 import os.path
 
 import yaml
-from omegaconf import OmegaConf
 import soundfile
 import tempfile
-import wave
 
-from espnet2.bin.enh_inference import SeparateSpeech
-
-import nemo.collections.asr as nemo_asr
-from nemo.core.classes import IterableDataset
-from nemo.core.neural_types import NeuralType, AudioSignal, LengthsType
 from transformers import (
     ElectraTokenizer,
     ElectraForSequenceClassification
 )
 
 import torch
-from torch.utils.data import DataLoader
 
-import whisper
-
-from model.mission2_model import SpeechEnhancement, VAD
+from model.mission2_model import SpeechEnhancement, VAD, SpeechRecognition
 from utils.asr_utils import convert_to_16k
 from utils.utils import save_to_json
 
 MODEL_ROOT = '/root/sogang_asr'
-ASR_MODEL_PATH = os.path.join(MODEL_ROOT, 'whisper_model/medium.pt')
 TOKENIZER_PATH = os.path.join(MODEL_ROOT, 'threat_model/baseline-kcelectra-newnew_train/tokenizer')
 NLP_MODEL_PATH = os.path.join(MODEL_ROOT, 'threat_model/baseline-kcelectra-newnew_train/epoch-26')
 
@@ -167,15 +154,7 @@ def main(filepaths, params, file_type='video'):
     #
     model_start_time = time.time()
 
-    # model = whisper.load_model("medium")
-    asr_model = whisper.load_model(ASR_MODEL_PATH)
-
-    print('model loaded.')
-
-    whisper_options = {
-        'task': 'transcribe',
-        'language': 'Korean'
-    }
+    asr_model = SpeechRecognition(model_params['speech_recognition'])
 
     model_loading_time = time.time() - model_start_time
 
@@ -256,7 +235,7 @@ def main(filepaths, params, file_type='video'):
 
         text_list = []
         for audio in audio_list:
-            result = asr_model.transcribe(audio[0], **whisper_options)
+            result = asr_model.transcribe(audio[0])
 
             trans = []
             for segment in result['segments']:
