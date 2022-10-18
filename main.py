@@ -25,6 +25,7 @@ from torch.utils.data import DataLoader
 
 import whisper
 
+from utils.asr_utils import convert_to_16k
 from utils.utils import save_to_json
 
 MODEL_ROOT = '/root/sogang_asr'
@@ -219,7 +220,7 @@ def convert(seconds):
     return '%02d:%02d:%02d.%03d' % (hour, min, sec, milli_sec)
 
 
-def main(filepaths):
+def main(filepaths, file_type='video'):
     global_start_time = time.time()
     total_audio_duration = 0.0
     time_dict = {}
@@ -232,22 +233,27 @@ def main(filepaths):
     t = tempfile.TemporaryDirectory()
     out_path = t.name
 
-    #
-    # mp4 to wav
-    #
-    for filepath in filepaths:
-        model_start_time = time.time()
+    if file_type == 'video':
+        #
+        # mp4 to wav
+        #
+        for filepath in filepaths:
+            model_start_time = time.time()
 
-        print(f'processing : {filepath}')
+            print(f'processing : {filepath}')
 
-        filename, file_extension = os.path.splitext(os.path.basename(filepath))
-        wav_path = os.path.join(out_path, f'{filename}.wav')
-        ffmpeg_extract_wav(filepath, wav_path)
-        wave_paths.append(wav_path)
+            filename, file_extension = os.path.splitext(os.path.basename(filepath))
+            wav_path = os.path.join(out_path, f'{filename}.wav')
+            ffmpeg_extract_wav(filepath, wav_path)
+            wave_paths.append(wav_path)
 
-        model_running_time = time.time() - model_start_time
+            model_running_time = time.time() - model_start_time
 
-        time_dict['pre']['model_running'] += model_running_time
+            time_dict['pre']['model_running'] += model_running_time
+
+    else:
+        for filepath in filepaths:
+            wave_paths.append(convert_to_16k(filepath, out_path))
 
     #
     # Load Model: Speech Enhancement
@@ -479,7 +485,7 @@ def main(filepaths):
         #
         model_start_time = time.time()
 
-        predlist = []
+        pred_list = []
         for text in text_list:
             inputs = tokenizer(text, return_tensors="pt")
             with torch.no_grad():
@@ -487,9 +493,9 @@ def main(filepaths):
 
             predicted_class_id = logits.argmax().item()
             pred = nlp_model.config.id2label[predicted_class_id]
-            predlist.append(pred)
+            pred_list.append(pred)
 
-        print(predlist)
+        print(pred_list)
 
         model_running_time = time.time() - model_start_time
 
@@ -498,8 +504,14 @@ def main(filepaths):
     global_running_time = time.time() - global_start_time
 
     print('\n=== Final results ===')
-    for audio, pred_label in zip(audio_list, predlist):
-        print(f'{audio[1]} - {audio[2]} : {pred_label}')
+    out_list = []
+    for audio, pred_label in zip(audio_list, pred_list):
+        start_time = audio[1]
+        end_time = audio[2]
+        print(f'{start_time} - {end_time} : {pred_label}')
+        out_list.append((start_time, end_time, pred_label))
+
+    save_to_json(out_list, 'mission2_result.json')
 
     print('\n=== Statistics ===')
     for module, elem in time_dict.items():
