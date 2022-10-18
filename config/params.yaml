@@ -1,4 +1,9 @@
 model:
   speech_enhancement:
     config_path: /root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/config.yaml
-    model_path:  /root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/5epoch.pth
+    model_path: /root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/5epoch.pth
+  vad:
+    model_path: /root/sogang_asr/nemo_model/vad_marblenet.nemo
+    window_size: 0.5
+    frame_len: 0.25
+    threshold: 0.3
