@@ -5,6 +5,8 @@ import ffmpeg
 import numpy as np
 import os
 import os.path
+
+import yaml
 from omegaconf import OmegaConf
 import soundfile
 import tempfile
@@ -25,6 +27,7 @@ from torch.utils.data import DataLoader
 
 import whisper
 
+from model.mission2_model import SpeechEnhancement
 from utils.asr_utils import convert_to_16k
 from utils.utils import save_to_json
 
@@ -35,6 +38,11 @@ VAD_MODEL_PATH = os.path.join(MODEL_ROOT, 'nemo_model/vad_marblenet.nemo')
 ASR_MODEL_PATH = os.path.join(MODEL_ROOT, 'whisper_model/medium.pt')
 TOKENIZER_PATH = os.path.join(MODEL_ROOT, 'threat_model/baseline-kcelectra-newnew_train/tokenizer')
 NLP_MODEL_PATH = os.path.join(MODEL_ROOT, 'threat_model/baseline-kcelectra-newnew_train/epoch-26')
+
+def load_settings(settings_path):
+    with open(settings_path) as settings_file:
+        settings = yaml.safe_load(settings_file)
+    return settings
 
 
 def ffmpeg_extract_wav(input_path, output_path):
@@ -220,7 +228,9 @@ def convert(seconds):
     return '%02d:%02d:%02d.%03d' % (hour, min, sec, milli_sec)
 
 
-def main(filepaths, file_type='video'):
+def main(filepaths, params, file_type='video'):
+    model_params = params["model"]
+
     global_start_time = time.time()
     total_audio_duration = 0.0
     time_dict = {}
@@ -259,19 +269,8 @@ def main(filepaths, file_type='video'):
     # Load Model: Speech Enhancement
     #
     model_start_time = time.time()
+    enh_model = SpeechEnhancement(model_params['speech_enhancement'])
 
-    enh_model_sc = SeparateSpeech(
-        train_config=ENH_CONFIG_PATH,
-        model_file=ENH_MODEL_PATH,
-        # for segment-wise process on long speech
-        normalize_segment_scale=False,
-        show_progressbar=True,
-        ref_channel=4,
-        normalize_output_wav=True,
-        device="cuda:0",
-        segment_size=120,
-        hop_size=96
-    )
     model_loading_time = time.time() - model_start_time
 
     time_dict['enh'] = {
@@ -366,7 +365,7 @@ def main(filepaths, file_type='video'):
         filename, file_extension = os.path.splitext(os.path.basename(wav_path))
         enhance_wav_path = os.path.join(out_path, f'{filename}_enhance.wav')
 
-        wave = enh_model_sc(mixwav_sc[None, ...], sr)
+        wave = enh_model.run(mixwav_sc[None, ...], sr)
         soundfile.write(enhance_wav_path, wave[0].squeeze(), sr)
 
         model_running_time = time.time() - model_start_time
@@ -528,9 +527,19 @@ def main(filepaths, file_type='video'):
 
 
 if __name__ == '__main__':
+    # filepaths = [
+    #     '/root/sogang_asr/data/grand2022/cam1_short.mp4',
+    #     # '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
+    #     # '/root/sogang_asr/data/grand2022/cam1_all_noise_30min_v2.mp4',
+    # ]
+    # main(filepaths)
+
     filepaths = [
-        '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
-        '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
+        '/root/sogang_asr/data/grand2022/speech_noise_mixdown_004.wav'
     ]
 
-    main(filepaths)
+    params_path = 'config/params.yaml'
+    params = load_settings(params_path)
+
+    main(filepaths, params, file_type='audio')
+
