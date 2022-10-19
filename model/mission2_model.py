@@ -1,4 +1,5 @@
 import copy
+import logging
 import wave
 
 import nemo.collections.asr as nemo_asr
@@ -7,13 +8,45 @@ from nemo.core.classes import IterableDataset
 from nemo.core.neural_types import NeuralType, AudioSignal, LengthsType
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from espnet2.bin.enh_inference import SeparateSpeech
+import onnxruntime as ort
+from torch.utils.data import DataLoader, TensorDataset, SequentialSampler
+from transformers import ElectraTokenizer
+
+
+class InputExample(object):
+    """A single training/test example for simple sequence classification."""
+
+    def __init__(self, text, label):
+        self.text = text
+        self.label = label
+
+
+class InputFeatures(object):
+    """A single set of features of data."""
+
+    def __init__(self, input_ids, attention_mask, token_type_ids, label):
+        self.input_ids = input_ids
+        self.attention_mask = attention_mask
+        self.token_type_ids = token_type_ids
+        self.label = label
+
+
+def create_examples(lines):
+    examples = []
+    for (i, line) in enumerate(lines):
+        examples.append(InputExample(text=line, label=None))
+    return examples
+
+
+
+
+
+
 
 
 class SpeechEnhancement:
     def __init__(self, params=None, logger=None):
-
         self.enh_model_sc = SeparateSpeech(
             train_config=params['config_path'],
             model_file=params['model_path'],
@@ -148,7 +181,8 @@ class FrameVAD:
         self.data_layer.set_signal(signal)
         batch = next(iter(self.data_loader))
         audio_signal, audio_signal_len = batch
-        audio_signal, audio_signal_len = audio_signal.to(self.vad_model.device), audio_signal_len.to(self.vad_model.device)
+        audio_signal, audio_signal_len = audio_signal.to(self.vad_model.device), audio_signal_len.to(
+            self.vad_model.device)
         logits = self.vad_model.forward(input_signal=audio_signal, input_signal_length=audio_signal_len)
         return logits
 
@@ -224,10 +258,10 @@ class VAD:
         return preds, proba_b, proba_s
 
     def inference(self, wave_file):
-        preds, proba_b, proba_s =  self.offline_inference(wave_file,
-                                                          step=self.frame_len,
-                                                          window_size=self.window_size,
-                                                          threshold=self.threshold)
+        preds, proba_b, proba_s = self.offline_inference(wave_file,
+                                                         step=self.frame_len,
+                                                         window_size=self.window_size,
+                                                         threshold=self.threshold)
 
         speech_ranges = []
 
@@ -266,3 +300,105 @@ class SpeechRecognition():
 
     def transcribe(self, audio):
         return self.asr_model.transcribe(audio, **self.whisper_options)
+
+
+class ThreatClassification():
+    def __init__(self, params=None, logger=None):
+        # ONNX model inference
+        self.device = 'cuda:0'
+        self.id2label = {0: '020121', 1: '000001', 2: '02051', 3: '020811', 4: '020819'}
+        self.tokenizer = ElectraTokenizer.from_pretrained(params['tokenizer_path'])
+
+        opt = ort.SessionOptions()
+        EP_list = [
+            ('CUDAExecutionProvider', {
+                'device_id': 0
+            })
+        ]
+        self.session = ort.InferenceSession(params['model_path'], opt, providers=EP_list)
+
+    def inference(self, text_list):
+        test_dataset = self.load_data(text_list)
+        results = self.evaluate(test_dataset, self.device)
+        return results
+
+    def evaluate(self, eval_dataset, device):
+        eval_batch_size = 64
+
+        eval_sampler = SequentialSampler(eval_dataset)
+        eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=eval_batch_size)
+
+        logging.info("***** Running evaluation *****")
+        logging.info("  Num examples = {}".format(len(eval_dataset)))
+        logging.info("  Eval Batch size = {}".format(eval_batch_size))
+
+        preds = None
+
+        for batch in eval_dataloader:
+
+            batch = tuple(t.to(device) for t in batch)
+
+            with torch.no_grad():
+                inputs = {
+                    "input_ids": np.atleast_2d(batch[0].detach().cpu().numpy()),
+                    "attention_mask": np.atleast_2d(batch[1].detach().cpu().numpy()),
+                    "token_type_ids": np.atleast_2d(batch[2].detach().cpu().numpy()),
+                }
+
+                outputs = self.session.run(None, inputs)
+                logits = outputs[0]
+
+            if preds is None:
+                preds = logits
+            else:
+                preds = np.append(preds, logits, axis=0)
+
+        preds = np.argmax(preds, axis=1)
+
+        pred_list = []
+        for pred in preds:
+            pred_list.append(self.id2label[pred])
+
+        return pred_list
+
+    def load_data(self, data):
+        examples = create_examples(data)
+        features = self.seq_cls_convert_examples_to_features(examples)
+
+        # Convert to Tensors and build dataset
+        all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+        all_attention_mask = torch.tensor([f.attention_mask for f in features], dtype=torch.long)
+        all_token_type_ids = torch.tensor([f.token_type_ids for f in features], dtype=torch.long)
+        # all_labels = torch.tensor([f.label for f in features], dtype=torch.long)
+
+        dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids)
+
+        return dataset
+
+    def seq_cls_convert_examples_to_features(self, examples):
+        max_length = 512
+
+        batch_encoding = self.tokenizer.batch_encode_plus(
+            [str(example.text) for example in examples],
+            max_length=max_length,
+            padding="max_length",
+            add_special_tokens=True,
+            truncation=True,
+        )
+
+        features = []
+        for i in range(len(examples)):
+            inputs = {k: batch_encoding[k][i] for k in batch_encoding}
+            if "token_type_ids" not in inputs:
+                inputs["token_type_ids"] = [0] * len(inputs["input_ids"])
+            feature = InputFeatures(**inputs, label=None)
+            features.append(feature)
+
+        for i, example in enumerate(examples[:5]):
+            logging.info("*** Example ***")
+            logging.info("input_ids: {}".format(" ".join([str(x) for x in features[i].input_ids])))
+            logging.info("attention_mask: {}".format(" ".join([str(x) for x in features[i].attention_mask])))
+            logging.info("token_type_ids: {}".format(" ".join([str(x) for x in features[i].token_type_ids])))
+            logging.info("label: {}".format(features[i].label))
+
+        return features

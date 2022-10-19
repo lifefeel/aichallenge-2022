@@ -8,20 +8,10 @@ import yaml
 import soundfile
 import tempfile
 
-from transformers import (
-    ElectraTokenizer,
-    ElectraForSequenceClassification
-)
-
-import torch
-
-from model.mission2_model import SpeechEnhancement, VAD, SpeechRecognition
+from model.mission2_model import SpeechEnhancement, VAD, SpeechRecognition, ThreatClassification
 from utils.asr_utils import convert_to_16k
 from utils.utils import save_to_json
 
-MODEL_ROOT = '/root/sogang_asr'
-TOKENIZER_PATH = os.path.join(MODEL_ROOT, 'threat_model/baseline-kcelectra-newnew_train/tokenizer')
-NLP_MODEL_PATH = os.path.join(MODEL_ROOT, 'threat_model/baseline-kcelectra-newnew_train/epoch-26')
 
 def load_settings(settings_path):
     with open(settings_path) as settings_file:
@@ -168,8 +158,7 @@ def main(filepaths, params, file_type='video'):
     #
     model_start_time = time.time()
 
-    tokenizer = ElectraTokenizer.from_pretrained(TOKENIZER_PATH)
-    nlp_model = ElectraForSequenceClassification.from_pretrained(NLP_MODEL_PATH)  # 모델 경로 넣기
+    nlp_model = ThreatClassification(model_params['threat_classification'])
 
     model_loading_time = time.time() - model_start_time
 
@@ -253,16 +242,7 @@ def main(filepaths, params, file_type='video'):
         #
         model_start_time = time.time()
 
-        pred_list = []
-        for text in text_list:
-            inputs = tokenizer(text, return_tensors="pt")
-            with torch.no_grad():
-                logits = nlp_model(**inputs).logits
-
-            predicted_class_id = logits.argmax().item()
-            pred = nlp_model.config.id2label[predicted_class_id]
-            pred_list.append(pred)
-
+        pred_list = nlp_model.inference(text_list)
         print(pred_list)
 
         model_running_time = time.time() - model_start_time

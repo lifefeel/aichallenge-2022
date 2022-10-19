@@ -9,3 +9,6 @@ model:
     threshold: 0.3
   speech_recognition:
     model_path: /root/sogang_asr/whisper_model/medium.pt
+  threat_classification:
+    model_path: /root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/newnewtrain_kcelectra_fp16.onnx
+    tokenizer_path: /root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/tokenizer
