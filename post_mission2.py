@@ -28,7 +28,7 @@ def count_dict(data_dict, key):
 
 if __name__ == '__main__':
     video_result_file = 'results/cam1_short_result.json'
-    audio_result_file = 'mission2_result.json'
+    audio_result_file = 'results/mission2_result.json'
 
     video_fps = 15
 
