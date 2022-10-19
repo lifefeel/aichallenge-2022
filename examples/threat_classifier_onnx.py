@@ -83,7 +83,11 @@ export_model_path = os.path.join(output_dir, 'newnewtrain_kcelectra.onnx')
 start = time.time()
 # ONNX model inference
 opt = ort.SessionOptions()
-EP_list = ['CUDAExecutionProvider']
+EP_list = [
+    ('CUDAExecutionProvider', {
+        'device_id': 0
+    })
+]
 session = ort.InferenceSession(export_model_path, opt, providers=EP_list)
 
 # load dataset
