@@ -166,7 +166,7 @@ class Mission2Manager():
             'model_running': 0.0
         }
 
-    def run_mission2(self, video_path, file_type='video'):
+    def run_mission2(self, file_path, file_type='video'):
         wave_paths = []
 
         self.time_dict['pre'] = {
@@ -180,23 +180,21 @@ class Mission2Manager():
             #
             # mp4 to wav
             #
-            for filepath in filepaths:
-                model_start_time = time.time()
+            model_start_time = time.time()
 
-                print(f'processing : {filepath}')
+            print(f'processing : {file_path}')
 
-                filename, file_extension = os.path.splitext(os.path.basename(filepath))
-                wav_path = os.path.join(out_path, f'{filename}.wav')
-                ffmpeg_extract_wav(filepath, wav_path)
-                wave_paths.append(wav_path)
+            filename, file_extension = os.path.splitext(os.path.basename(file_path))
+            wav_path = os.path.join(out_path, f'{filename}.wav')
+            ffmpeg_extract_wav(file_path, wav_path)
+            wave_paths.append(wav_path)
 
-                model_running_time = time.time() - model_start_time
+            model_running_time = time.time() - model_start_time
 
-                self.time_dict['pre']['model_running'] += model_running_time
+            self.time_dict['pre']['model_running'] += model_running_time
 
         else:
-            for filepath in filepaths:
-                wave_paths.append(convert_to_16k(filepath, out_path))
+            wave_paths.append(convert_to_16k(file_path, out_path))
 
         for wav_path in wave_paths:
             #
@@ -311,7 +309,7 @@ def main(filepaths, params, file_type='video'):
     manager.load_model()
 
     for filepath in filepaths:
-        manager.run_mission2(video_path=filepath, file_type=file_type)
+        manager.run_mission2(file_path=filepath, file_type=file_type)
 
     manager.print_statistics()
     print('finished')
@@ -324,15 +322,15 @@ if __name__ == '__main__':
 
     params_path = 'config/params.yaml'
     params = load_settings(params_path)
-    # filepaths = [
-    #     '/root/sogang_asr/data/grand2022/cam1_short.mp4',
-    #     # '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
-    #     # '/root/sogang_asr/data/grand2022/cam1_all_noise_30min_v2.mp4',
-    # ]
-    # main(filepaths, params, file_type='video')
-
     filepaths = [
-        '/root/sogang_asr/data/grand2022/speech_noise_mixdown_004.wav'
+        '/root/sogang_asr/data/grand2022/cam1_short.mp4',
+        '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
+        # '/root/sogang_asr/data/grand2022/cam1_all_noise_30min_v2.mp4',
     ]
+    main(filepaths, params, file_type='video')
 
-    main(filepaths, params, file_type='audio')
+    # filepaths = [
+    #     '/root/sogang_asr/data/grand2022/speech_noise_mixdown_004.wav'
+    # ]
+    #
+    # main(filepaths, params, file_type='audio')

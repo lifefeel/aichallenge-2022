@@ -324,9 +324,9 @@ class ThreatClassification():
         eval_sampler = SequentialSampler(eval_dataset)
         eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler, batch_size=eval_batch_size)
 
-        logging.info("***** Running evaluation *****")
-        logging.info("  Num examples = {}".format(len(eval_dataset)))
-        logging.info("  Eval Batch size = {}".format(eval_batch_size))
+        logging.debug("***** Running evaluation *****")
+        logging.debug("  Num examples = {}".format(len(eval_dataset)))
+        logging.debug("  Eval Batch size = {}".format(eval_batch_size))
 
         preds = None
 
@@ -391,10 +391,10 @@ class ThreatClassification():
             features.append(feature)
 
         for i, example in enumerate(examples[:5]):
-            logging.info("*** Example ***")
-            logging.info("input_ids: {}".format(" ".join([str(x) for x in features[i].input_ids])))
-            logging.info("attention_mask: {}".format(" ".join([str(x) for x in features[i].attention_mask])))
-            logging.info("token_type_ids: {}".format(" ".join([str(x) for x in features[i].token_type_ids])))
-            logging.info("label: {}".format(features[i].label))
+            logging.debug("*** Example ***")
+            logging.debug("input_ids: {}".format(" ".join([str(x) for x in features[i].input_ids])))
+            logging.debug("attention_mask: {}".format(" ".join([str(x) for x in features[i].attention_mask])))
+            logging.debug("token_type_ids: {}".format(" ".join([str(x) for x in features[i].token_type_ids])))
+            logging.debug("label: {}".format(features[i].label))
 
         return features
