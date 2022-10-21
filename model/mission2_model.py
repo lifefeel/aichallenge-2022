@@ -39,14 +39,9 @@ def create_examples(lines):
     return examples
 
 
-
-
-
-
-
-
 class SpeechEnhancement:
     def __init__(self, params=None, logger=None):
+        self.device = f"cuda:{params['gpu']}"
         self.enh_model_sc = SeparateSpeech(
             train_config=params['config_path'],
             model_file=params['model_path'],
@@ -55,7 +50,7 @@ class SpeechEnhancement:
             show_progressbar=True,
             ref_channel=4,
             normalize_output_wav=True,
-            device="cuda:0",
+            device=self.device,
             segment_size=120,
             hop_size=96
         )
@@ -190,6 +185,7 @@ class FrameVAD:
 class VAD:
     def __init__(self, params=None, logger=None):
         vad_model = nemo_asr.models.EncDecClassificationModel.restore_from(params['model_path'])
+        self.device = f"cuda:{params['gpu']}"
         # Preserve a copy of the full config
         cfg = copy.deepcopy(vad_model._cfg)
         # print(OmegaConf.to_yaml(cfg))
@@ -197,7 +193,7 @@ class VAD:
         vad_model.preprocessor = vad_model.from_config_dict(cfg.preprocessor)
         # Set model to inference mode
         vad_model.eval()
-        self.vad_model = vad_model.to(vad_model.device)
+        self.vad_model = vad_model.to(self.device)
 
         self.vad_model_definition = {
             'sample_rate': cfg.train_ds.sample_rate,
@@ -305,24 +301,24 @@ class SpeechRecognition():
 class ThreatClassification():
     def __init__(self, params=None, logger=None):
         # ONNX model inference
-        self.device = 'cuda:0'
+        self.device = f"cuda:{params['gpu']}"
         self.id2label = {0: '020121', 1: '000001', 2: '02051', 3: '020811', 4: '020819'}
         self.tokenizer = ElectraTokenizer.from_pretrained(params['tokenizer_path'])
 
         opt = ort.SessionOptions()
         EP_list = [
             ('CUDAExecutionProvider', {
-                'device_id': 0
+                'device_id': params['gpu']
             })
         ]
         self.session = ort.InferenceSession(params['model_path'], opt, providers=EP_list)
 
     def inference(self, text_list):
         test_dataset = self.load_data(text_list)
-        results = self.evaluate(test_dataset, self.device)
+        results = self.evaluate(test_dataset)
         return results
 
-    def evaluate(self, eval_dataset, device):
+    def evaluate(self, eval_dataset):
         eval_batch_size = 64
 
         eval_sampler = SequentialSampler(eval_dataset)
@@ -336,7 +332,7 @@ class ThreatClassification():
 
         for batch in eval_dataloader:
 
-            batch = tuple(t.to(device) for t in batch)
+            batch = tuple(t.to(self.device) for t in batch)
 
             with torch.no_grad():
                 inputs = {
