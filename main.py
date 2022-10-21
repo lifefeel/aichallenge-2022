@@ -75,220 +75,231 @@ def vad_post_process(speech_ranges):
     return dialog_ranges
 
 
-def main(filepaths, params, file_type='video'):
-    model_params = params["model"]
+class Mission2Manager():
+    def __init__(self, params):
+        self.global_start_time = time.time()
+        self.global_running_time = None
+        self.total_audio_duration = 0.0
+        self.time_dict = {}
+        model_params = params["model"]
 
-    global_start_time = time.time()
-    total_audio_duration = 0.0
-    time_dict = {}
-    wave_paths = []
-
-    time_dict['pre'] = {
-        'model_running': 0.0
-    }
-
-    t = tempfile.TemporaryDirectory()
-    out_path = t.name
-
-    if file_type == 'video':
         #
-        # mp4 to wav
+        # Load Model: Speech Enhancement
         #
-        for filepath in filepaths:
+        model_start_time = time.time()
+        self.enh_model = SpeechEnhancement(model_params['speech_enhancement'])
+
+        model_loading_time = time.time() - model_start_time
+
+        self.time_dict['enh'] = {
+            'model_loading': model_loading_time,
+            'model_running': 0.0
+        }
+
+        #
+        # Load Model: VAD
+        #
+        model_start_time = time.time()
+
+        self.vad_model = VAD(model_params['vad'])
+
+        model_loading_time = time.time() - model_start_time
+
+        self.time_dict['vad'] = {
+            'model_loading': model_loading_time,
+            'model_running': 0.0,
+        }
+
+        #
+        # Load Model: Speech Recognition
+        #
+        model_start_time = time.time()
+
+        self.asr_model = SpeechRecognition(model_params['speech_recognition'])
+
+        model_loading_time = time.time() - model_start_time
+
+        self.time_dict['asr'] = {
+            'model_loading': model_loading_time,
+            'model_running': 0.0
+        }
+
+        #
+        # Load Model: Threat Classifier
+        #
+        model_start_time = time.time()
+
+        self.nlp_model = ThreatClassification(model_params['threat_classification'])
+
+        model_loading_time = time.time() - model_start_time
+
+        self.time_dict['nlp'] = {
+            'model_loading': model_loading_time,
+            'model_running': 0.0
+        }
+
+    def run_mission2(self, video_path, file_type='video'):
+        wave_paths = []
+
+        self.time_dict['pre'] = {
+            'model_running': 0.0
+        }
+
+        t = tempfile.TemporaryDirectory()
+        out_path = t.name
+
+        if file_type == 'video':
+            #
+            # mp4 to wav
+            #
+            for filepath in filepaths:
+                model_start_time = time.time()
+
+                print(f'processing : {filepath}')
+
+                filename, file_extension = os.path.splitext(os.path.basename(filepath))
+                wav_path = os.path.join(out_path, f'{filename}.wav')
+                ffmpeg_extract_wav(filepath, wav_path)
+                wave_paths.append(wav_path)
+
+                model_running_time = time.time() - model_start_time
+
+                self.time_dict['pre']['model_running'] += model_running_time
+
+        else:
+            for filepath in filepaths:
+                wave_paths.append(convert_to_16k(filepath, out_path))
+
+        for wav_path in wave_paths:
+            #
+            # Speech Enhancement
+            #
             model_start_time = time.time()
 
-            print(f'processing : {filepath}')
+            mixwav_mc, sr = soundfile.read(wav_path)
+            # mixwav.shape: num_samples, num_channels
+            # mixwav_sc = mixwav_mc[:,4]
+            mixwav_sc = mixwav_mc[:]
 
-            filename, file_extension = os.path.splitext(os.path.basename(filepath))
-            wav_path = os.path.join(out_path, f'{filename}.wav')
-            ffmpeg_extract_wav(filepath, wav_path)
-            wave_paths.append(wav_path)
+            self.total_audio_duration += len(mixwav_mc) / float(sr)
+
+            filename, file_extension = os.path.splitext(os.path.basename(wav_path))
+            enhance_wav_path = os.path.join(out_path, f'{filename}_enhance.wav')
+
+            wave = self.enh_model.run(mixwav_sc[None, ...], sr)
+            soundfile.write(enhance_wav_path, wave[0].squeeze(), sr)
 
             model_running_time = time.time() - model_start_time
 
-            time_dict['pre']['model_running'] += model_running_time
+            self.time_dict['enh']['model_running'] += model_running_time
 
-    else:
-        for filepath in filepaths:
-            wave_paths.append(convert_to_16k(filepath, out_path))
+            #
+            # VAD
+            #
+            model_start_time = time.time()
 
-    #
-    # Load Model: Speech Enhancement
-    #
-    model_start_time = time.time()
-    enh_model = SpeechEnhancement(model_params['speech_enhancement'])
+            speech_ranges = self.vad_model.inference(enhance_wav_path)
 
-    model_loading_time = time.time() - model_start_time
+            save_to_json(speech_ranges, 'vad_infer_result.json')
 
-    time_dict['enh'] = {
-        'model_loading': model_loading_time,
-        'model_running': 0.0
-    }
+            dialog_ranges = vad_post_process(speech_ranges)
 
-    #
-    # Load Model: VAD
-    #
-    model_start_time = time.time()
+            print('=== dialog part ===')
+            audio_list = []
+            for i, dialog_range in enumerate(dialog_ranges):
+                start_time = dialog_range[0]
+                end_time = dialog_range[1]
+                print(f'dialog({i}) : {convert(start_time)} - {convert(end_time)} (duration : {end_time - start_time})')
 
-    vad_model = VAD(model_params['vad'])
+                start_frame = int(start_time * sr)
+                end_frame = int(end_time * sr)
+                audio, _ = soundfile.read(wav_path, start=start_frame, stop=end_frame, dtype='float32')
+                audio_list.append((audio, start_time, end_time))
 
-    model_loading_time = time.time() - model_start_time
+            model_running_time = time.time() - model_start_time
 
-    time_dict['vad'] = {
-        'model_loading': model_loading_time,
-        'model_running': 0.0,
-    }
+            self.time_dict['vad']['model_running'] += model_running_time
 
-    #
-    # Load Model: Speech Recognition
-    #
-    model_start_time = time.time()
+            #
+            # Speech Recognition
+            #
+            model_start_time = time.time()
 
-    asr_model = SpeechRecognition(model_params['speech_recognition'])
+            text_list = []
+            for audio in audio_list:
+                result = self.asr_model.transcribe(audio[0])
 
-    model_loading_time = time.time() - model_start_time
+                trans = []
+                for segment in result['segments']:
+                    print(f'{segment["start"]} - {segment["end"]} : {segment["text"]}')
+                    trans.append(segment["text"])
 
-    time_dict['asr'] = {
-        'model_loading': model_loading_time,
-        'model_running': 0.0
-    }
+                text_list.append(' '.join(trans))
 
-    #
-    # Load Model: Threat Classifier
-    #
-    model_start_time = time.time()
+            model_running_time = time.time() - model_start_time
 
-    nlp_model = ThreatClassification(model_params['threat_classification'])
+            self.time_dict['asr']['model_running'] += model_running_time
 
-    model_loading_time = time.time() - model_start_time
+            #
+            # Threat Classifier
+            #
+            model_start_time = time.time()
 
-    time_dict['nlp'] = {
-        'model_loading': model_loading_time,
-        'model_running': 0.0
-    }
+            pred_list = self.nlp_model.inference(text_list)
+            print(pred_list)
 
-    for wav_path in wave_paths:
-        #
-        # Speech Enhancement
-        #
-        model_start_time = time.time()
+            model_running_time = time.time() - model_start_time
 
-        mixwav_mc, sr = soundfile.read(wav_path)
-        # mixwav.shape: num_samples, num_channels
-        # mixwav_sc = mixwav_mc[:,4]
-        mixwav_sc = mixwav_mc[:]
+            self.time_dict['nlp']['model_running'] += model_running_time
 
-        total_audio_duration += len(mixwav_mc) / float(sr)
+        print('\n=== Final results ===')
+        out_list = []
+        for audio, pred_label in zip(audio_list, pred_list):
+            start_time = audio[1]
+            end_time = audio[2]
+            print(f'{start_time} - {end_time} : {pred_label}')
+            out_list.append((start_time, end_time, pred_label))
 
-        filename, file_extension = os.path.splitext(os.path.basename(wav_path))
-        enhance_wav_path = os.path.join(out_path, f'{filename}_enhance.wav')
+        save_to_json(out_list, 'mission2_result.json')
 
-        wave = enh_model.run(mixwav_sc[None, ...], sr)
-        soundfile.write(enhance_wav_path, wave[0].squeeze(), sr)
+    def end_mission(self):
+        self.global_running_time = time.time() - self.global_start_time
 
-        model_running_time = time.time() - model_start_time
+    def print_statistics(self):
+        if not self.global_running_time:
+            self.end_mission()
 
-        time_dict['enh']['model_running'] += model_running_time
+        print('\n=== Statistics ===')
+        for module, elem in self.time_dict.items():
+            print(f'{module} : {elem}')
 
-        #
-        # VAD
-        #
-        model_start_time = time.time()
+        print(f'\ntotal audio duration : {self.total_audio_duration:.2f}')
+        print(f'total running time : {self.global_running_time:.2f}')
+        print(f'RTF : {self.global_running_time / self.total_audio_duration:.4f}')
 
-        speech_ranges = vad_model.inference(enhance_wav_path)
 
-        save_to_json(speech_ranges, 'vad_infer_result.json')
+def main(filepaths, params, file_type='video'):
+    manager = Mission2Manager(params)
+    for filepath in filepaths:
+        manager.run_mission2(video_path=filepath, file_type=file_type)
 
-        dialog_ranges = vad_post_process(speech_ranges)
-
-        print('=== dialog part ===')
-        audio_list = []
-        for i, dialog_range in enumerate(dialog_ranges):
-            start_time = dialog_range[0]
-            end_time = dialog_range[1]
-            print(f'dialog({i}) : {convert(start_time)} - {convert(end_time)} (duration : {end_time - start_time})')
-
-            start_frame = int(start_time * sr)
-            end_frame = int(end_time * sr)
-            audio, _ = soundfile.read(wav_path, start=start_frame, stop=end_frame, dtype='float32')
-            audio_list.append((audio, start_time, end_time))
-
-        model_running_time = time.time() - model_start_time
-
-        time_dict['vad']['model_running'] += model_running_time
-
-        #
-        # Speech Recognition
-        #
-        model_start_time = time.time()
-
-        text_list = []
-        for audio in audio_list:
-            result = asr_model.transcribe(audio[0])
-
-            trans = []
-            for segment in result['segments']:
-                print(f'{segment["start"]} - {segment["end"]} : {segment["text"]}')
-                trans.append(segment["text"])
-
-            text_list.append(' '.join(trans))
-
-        model_running_time = time.time() - model_start_time
-
-        time_dict['asr']['model_running'] += model_running_time
-
-        #
-        # Threat Classifier
-        #
-        model_start_time = time.time()
-
-        pred_list = nlp_model.inference(text_list)
-        print(pred_list)
-
-        model_running_time = time.time() - model_start_time
-
-        time_dict['nlp']['model_running'] += model_running_time
-
-    global_running_time = time.time() - global_start_time
-
-    print('\n=== Final results ===')
-    out_list = []
-    for audio, pred_label in zip(audio_list, pred_list):
-        start_time = audio[1]
-        end_time = audio[2]
-        print(f'{start_time} - {end_time} : {pred_label}')
-        out_list.append((start_time, end_time, pred_label))
-
-    save_to_json(out_list, 'mission2_result.json')
-
-    print('\n=== Statistics ===')
-    for module, elem in time_dict.items():
-        print(f'{module} : {elem}')
-
-    print(f'\ntotal audio duration : {total_audio_duration:.2f}')
-    print(f'total running time : {global_running_time:.2f}')
-    print(f'RTF : {global_running_time / total_audio_duration:.4f}')
+    manager.print_statistics()
     print('finished')
-
-    # TODO : 인식한 시간값을 받아와 계산하여 최종 시간으로 변경
-    # 중간 파일을 저장하지 않고 다음 모델로 전달하는 방법
-    # 작년것 EPD 돌려보기
 
 
 if __name__ == '__main__':
+    params_path = 'config/params.yaml'
+    params = load_settings(params_path)
     # filepaths = [
     #     '/root/sogang_asr/data/grand2022/cam1_short.mp4',
     #     # '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
     #     # '/root/sogang_asr/data/grand2022/cam1_all_noise_30min_v2.mp4',
     # ]
-    # main(filepaths)
+    # main(filepaths, params, file_type='video')
 
     filepaths = [
         '/root/sogang_asr/data/grand2022/speech_noise_mixdown_004.wav'
     ]
-
-    params_path = 'config/params.yaml'
-    params = load_settings(params_path)
 
     main(filepaths, params, file_type='audio')
 
