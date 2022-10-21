@@ -4,6 +4,7 @@ import os
 from typing import List
 
 import editdistance
+import ffmpeg
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 import soundfile
@@ -191,3 +192,58 @@ def word_error_rate(hypotheses: List[str], references: List[str], use_cer=False)
     else:
         wer = float('inf')
     return wer
+
+
+def ffmpeg_extract_wav(input_path, output_path):
+    input_stream = ffmpeg.input(input_path)
+
+    output_wav = ffmpeg.output(input_stream.audio, output_path, acodec='pcm_s16le', ac=1, ar='16k')
+    output_wav.overwrite_output().run()
+
+def convert(seconds):
+    min, sec = divmod(seconds, 60)
+    hour, min = divmod(min, 60)
+    milli_sec = sec % 1 * 1000
+    return '%02d:%02d:%02d.%03d' % (hour, min, sec, milli_sec)
+
+
+def vad_post_process(speech_ranges):
+    last_start = -1
+    last_end = 0
+
+    idx = 0
+    dialog_ranges = []
+    dialog_min_length = 30
+
+    print('=== chunking ===')
+    for i, speech_range in enumerate(speech_ranges):
+        start_time = speech_range[0]
+        end_time = speech_range[1]
+
+        # print(f'({i}) speech : {start_time} to {end_time}')
+
+        if last_start < 0:
+            last_start = start_time
+            last_end = end_time
+
+        if start_time - last_end > 5:
+            # new chunk
+            print(
+                f'  chunk({idx}) : {convert(last_start)} - {convert(last_end)} (duration : {last_end - last_start})')
+
+            if last_end - last_start > dialog_min_length:
+                dialog_ranges.append((last_start, last_end))
+
+            last_start = start_time
+            last_end = end_time
+
+            idx += 1
+            pass
+        else:
+            # concat
+            last_end = end_time
+
+    if last_end - last_start > dialog_min_length:
+        dialog_ranges.append((last_start, last_end))
+
+    return dialog_ranges
