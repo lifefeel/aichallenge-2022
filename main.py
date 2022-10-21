@@ -11,7 +11,7 @@ import tempfile
 from model.mission2_model import SpeechEnhancement, VAD, SpeechRecognition, ThreatClassification
 from utils.asr_utils import convert_to_16k
 from utils.utils import save_to_json
-
+import logging
 
 def load_settings(settings_path):
     with open(settings_path) as settings_file:
@@ -81,13 +81,32 @@ class Mission2Manager():
         self.global_running_time = None
         self.total_audio_duration = 0.0
         self.time_dict = {}
-        model_params = params["model"]
+        self.model_params = params["model"]
 
+        self.enh_model = None
+        self.vad_model = None
+        self.asr_model = None
+        self.nlp_model = None
+
+    def load_model(self):
+        if not self.enh_model:
+            self.load_speech_enhancement_model()
+        if not self.vad_model:
+            self.load_voice_activity_model()
+        if not self.asr_model:
+            self.load_speech_recognition_model()
+        if not self.nlp_model:
+            self.load_threat_classification_model()
+
+    def load_speech_enhancement_model(self):
         #
         # Load Model: Speech Enhancement
         #
+        logging.info('Loading - Speech Enhancement Model')
+
         model_start_time = time.time()
-        self.enh_model = SpeechEnhancement(model_params['speech_enhancement'])
+
+        self.enh_model = SpeechEnhancement(self.model_params['speech_enhancement'])
 
         model_loading_time = time.time() - model_start_time
 
@@ -96,12 +115,15 @@ class Mission2Manager():
             'model_running': 0.0
         }
 
+    def load_voice_activity_model(self):
         #
         # Load Model: VAD
         #
+        logging.info('Loading - Voice Activity Detection Model')
+
         model_start_time = time.time()
 
-        self.vad_model = VAD(model_params['vad'])
+        self.vad_model = VAD(self.model_params['vad'])
 
         model_loading_time = time.time() - model_start_time
 
@@ -110,12 +132,15 @@ class Mission2Manager():
             'model_running': 0.0,
         }
 
+    def load_speech_recognition_model(self):
         #
         # Load Model: Speech Recognition
         #
+        logging.info('Loading - Speech Recognition Model')
+
         model_start_time = time.time()
 
-        self.asr_model = SpeechRecognition(model_params['speech_recognition'])
+        self.asr_model = SpeechRecognition(self.model_params['speech_recognition'])
 
         model_loading_time = time.time() - model_start_time
 
@@ -124,12 +149,15 @@ class Mission2Manager():
             'model_running': 0.0
         }
 
+    def load_threat_classification_model(self):
         #
         # Load Model: Threat Classifier
         #
+        logging.info('Loading - Threat Classification Model')
+
         model_start_time = time.time()
 
-        self.nlp_model = ThreatClassification(model_params['threat_classification'])
+        self.nlp_model = ThreatClassification(self.model_params['threat_classification'])
 
         model_loading_time = time.time() - model_start_time
 
@@ -280,6 +308,8 @@ class Mission2Manager():
 
 def main(filepaths, params, file_type='video'):
     manager = Mission2Manager(params)
+    manager.load_model()
+
     for filepath in filepaths:
         manager.run_mission2(video_path=filepath, file_type=file_type)
 
@@ -288,6 +318,10 @@ def main(filepaths, params, file_type='video'):
 
 
 if __name__ == '__main__':
+    logging.basicConfig(format='%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s')
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
     params_path = 'config/params.yaml'
     params = load_settings(params_path)
     # filepaths = [
@@ -302,4 +336,3 @@ if __name__ == '__main__':
     ]
 
     main(filepaths, params, file_type='audio')
-
