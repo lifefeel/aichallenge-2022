@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import numpy as np
+import logging
 
 from utils.utils import load_json
 
@@ -45,16 +46,32 @@ def count_agegender(data_list):
 
         count_dictionary(gender_dict, gender_str)
 
-    print(gender_dict)
-    print(argmax_dict(gender_dict))
+    logging.debug(f'gender_dict: {gender_dict}')
 
     max_gender_str = argmax_dict(gender_dict)
     return max_gender_str.split('_')
 
 
+def convert_agegender(data_list):
+    age_dict = {
+        'female': '성인여성',
+        'male': '성인남성',
+        'children': '어린이'
+    }
+    out_list = []
+    for elem in data_list:
+        out_list.append(age_dict[elem])
+
+    return out_list
+
+
 if __name__ == '__main__':
-    video_result_file = 'results/cam1_short_result.json'
-    audio_result_file = 'results/mission2_result.json'
+    logging.basicConfig(format='%(asctime)s (%(module)s:%(lineno)d) %(levelname)s: %(message)s')
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    video_result_file = 'results/cam1_short2_result.json'
+    audio_result_file = 'results/cam1_short2_result_m2.json'
 
     video_fps = 15
 
@@ -123,7 +140,7 @@ if __name__ == '__main__':
         total_frame_count = len(frame_results)
         related_frame_count = 0
 
-        for frame_result in frame_results:
+        for frame_idx, frame_result in enumerate(frame_results):
             assert len(frame_result.keys()) == 2
 
             frame_number = frame_result['frame_number']
@@ -133,13 +150,13 @@ if __name__ == '__main__':
 
             related_frame_count += 1
 
-            print('========================================')
-            print(f'video frame: {frame_number} (time: {frame_number / video_fps})')
+            logging.debug('========================================')
+            logging.debug(f'video frame: {frame_number} (time: {frame_number / video_fps})')
 
             results = frame_result['result']
 
             result_len = len(results)
-            print(f'object result len : {result_len}')
+            logging.debug(f'object result len : {result_len}')
 
             position_data = []
             position_x = []
@@ -165,12 +182,12 @@ if __name__ == '__main__':
                 position_y.append(position['y'])
                 position_data.append((position['x'], position['y']))
 
-                print(result)
+                logging.debug(label)
 
             if len(position_data) < 2:
                 continue
 
-            print(f'position_data: {position_data}')
+            logging.debug(f'position_data: {position_data}')
 
             max_x = max(position_x)
             min_x = min(position_x)
@@ -199,6 +216,15 @@ if __name__ == '__main__':
                         except KeyError:
                             local_group_dict[group_num] = [x]
 
+                        for result in results:
+                            label = result['label']
+                            position = result['position']
+
+                            if x == position['x']:
+                                age_gender = label['age_gender']
+                                age_gender_class = age_gender['class']
+                                break
+
                         try:
                             local_age_gender_dict[group_num].append(age_gender_class)
                         except KeyError:
@@ -221,6 +247,15 @@ if __name__ == '__main__':
                             local_group_dict[group_num].append(x)
                         except KeyError:
                             local_group_dict[group_num] = [x]
+
+                        for result in results:
+                            label = result['label']
+                            position = result['position']
+
+                            if x == position['x']:
+                                age_gender = label['age_gender']
+                                age_gender_class = age_gender['class']
+                                break
 
                         try:
                             local_age_gender_dict[group_num].append(age_gender_class)
@@ -255,6 +290,15 @@ if __name__ == '__main__':
                         except KeyError:
                             local_group_dict[group_num] = [x]
 
+                        for result in results:
+                            label = result['label']
+                            position = result['position']
+
+                            if x == position['x']:
+                                age_gender = label['age_gender']
+                                age_gender_class = age_gender['class']
+                                break
+
                         try:
                             local_age_gender_dict[group_num].append(age_gender_class)
                         except KeyError:
@@ -288,15 +332,24 @@ if __name__ == '__main__':
                         except KeyError:
                             local_group_dict[group_num] = [x]
 
+                        for result in results:
+                            label = result['label']
+                            position = result['position']
+
+                            if x == position['x']:
+                                age_gender = label['age_gender']
+                                age_gender_class = age_gender['class']
+                                break
+
                         try:
                             local_age_gender_dict[group_num].append(age_gender_class)
                         except KeyError:
                             local_age_gender_dict[group_num] = [age_gender_class]
 
             assert -1 not in group_list
-            print(f'group_list: {group_list}')
-            print(f'local_group_dict: {local_group_dict}')
-            print(f'local_age_gender_dict: {local_age_gender_dict}')
+            logging.debug(f'group_list: {group_list}')
+            logging.debug(f'local_group_dict: {local_group_dict}')
+            logging.debug(f'local_age_gender_dict: {local_age_gender_dict}')
 
             for idx, x_list in local_group_dict.items():
                 people_len = len(x_list)
@@ -314,12 +367,6 @@ if __name__ == '__main__':
                     gender_count[idx][people_len] = [x_list]
 
         print(f'group_count : {group_count}')
-
-        answer = {
-            'event': threat_label,
-            'time_start': time_start,
-            'time_end': time_end
-        }
 
         min_std_idx = -1
         min_std = 10000
@@ -343,9 +390,17 @@ if __name__ == '__main__':
 
         print(f'min_std_group : {min_std_idx}')
         num_people = argmax_dict(group_count[min_std_idx])
-        print(gender_count[min_std_idx][num_people])
+        print(f'gender_count :{gender_count[min_std_idx][num_people]}')
 
         age_gender_list = count_agegender(gender_count[min_std_idx][num_people])
+
+        answer = {
+            'event': threat_label,
+            'time_start': time_start,
+            'time_end': time_end,
+            'person': convert_agegender(age_gender_list),
+            'person_num': num_people
+        }
 
         print('=== Result ===')
         print(f'total frame count: {total_frame_count}')
