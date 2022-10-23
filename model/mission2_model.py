@@ -617,7 +617,7 @@ class Mission2Manager():
             print(f'{start_time} - {end_time} : {pred_label}')
             out_list.append((start_time, end_time, pred_label))
 
-        # save_to_json(out_list, 'mission2_result.json')
+        return out_list
 
     def end_mission(self):
         self.global_running_time = time.time() - self.global_start_time
