@@ -38,6 +38,8 @@ class MissionSubmission():
 
         logging.debug(f'video_start: {start_datetime}')
 
+        output_list = []
+
         for audio_result in audio_results:
             start_time = audio_result[0]
             end_time = audio_result[1]
@@ -311,7 +313,7 @@ class MissionSubmission():
             min_std = 10000
 
             for key, val in group_x_array.items():
-                if len(val) < total_frame_count * 0.5:  # 해당 구간에 일정 비율 이하로 등장하는 사람그룹은 제외
+                if len(val) < related_frame_count * 0.1:  # 해당 구간에 일정 비율 이하로 등장하는 사람그룹은 제외
                     continue
 
                 data_x = np.array(val)
@@ -348,7 +350,10 @@ class MissionSubmission():
             print(f'age gender: {age_gender_list}')
             print(f'last frame time : {frame_results[-1]["frame_number"] / video_fps}')
 
-            return self.generate_answer_sheet(cam_no=info_cam, mission=info_mission, answer=answer)
+            output = self.generate_answer_sheet(cam_no=info_cam, mission=info_mission, answer=answer)
+            output_list.append(output)
+
+        return output_list
 
 
 def count_dictionary(data_dict, key):

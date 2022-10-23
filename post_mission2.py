@@ -20,5 +20,7 @@ if __name__ == '__main__':
 
     submission = MissionSubmission(team_id=TEAM_ID, secret=SECRET)
 
-    result = submission.postprocess_mission2(video_results, audio_results)
-    print(result)
+    results = submission.postprocess_mission2(video_results, audio_results)
+
+    for result in results:
+        print(result)
