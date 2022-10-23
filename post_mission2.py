@@ -165,11 +165,10 @@ if __name__ == '__main__':
             local_age_gender_dict = {}
 
             for i, result in enumerate(results):
-                assert len(result.keys()) == 3
+                assert len(result.keys()) == 2
 
                 label = result['label']
                 position = result['position']
-                pose = result['pose']
 
                 age_gender = label['age_gender']
                 age_gender_class = age_gender['class']
