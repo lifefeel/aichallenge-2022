@@ -1,12 +1,16 @@
+import json
 from datetime import datetime, timedelta
+from urllib import request
+
 import numpy as np
 import logging
 
 
 class MissionSubmission():
-    def __init__(self, team_id, secret):
+    def __init__(self, team_id, secret, api_url):
         self.team_id = team_id
         self.secret = secret
+        self.api_url = api_url
 
     def generate_answer_sheet(self, cam_no, mission, answer):
         return {
@@ -347,7 +351,7 @@ class MissionSubmission():
                 'time_start': time_start,
                 'time_end': time_end,
                 'person': convert_agegender(age_gender_list),
-                'person_num': num_people
+                'person_num': str(num_people)
             }
 
             logging.debug('=== Result ===')
@@ -361,6 +365,26 @@ class MissionSubmission():
             output_list.append(output)
 
         return output_list
+
+    def submit(self, result):
+        data = json.dumps(result).encode('unicode-escape')
+        req = request.Request(self.api_url, data=data)
+        resp = request.urlopen(req)
+
+        status = resp.read().decode('utf8')
+        if "OK" in status:
+            logging.info("Request successful!!")
+        else:
+            logging.error('Request error.')
+
+    def end_of_mission(self):
+        logging.info('End of Mission')
+        message_structure = {
+            "team_id": self.team_id,
+            "secret": self.secret,
+            "end_of_mission": "true"
+        }
+        self.submit(message_structure)
 
 
 def count_dictionary(data_dict, key):
