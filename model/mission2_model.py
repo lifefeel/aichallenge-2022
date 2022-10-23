@@ -213,7 +213,7 @@ class VAD:
         self.threshold = params['threshold']
 
     def offline_inference(self, wave_file, step=0.025, window_size=0.5, threshold=0.5):
-        print(f'====== FRAME_LEN is {step}s, WINDOW_SIZE is {window_size}s ====== ')
+        logging.debug(f'====== FRAME_LEN is {step}s, WINDOW_SIZE is {window_size}s ====== ')
         frame_len = step  # infer every STEP seconds
         channels = 1  # number of audio channels (expect mono signal)
         rate = 16000  # sample rate, Hz
@@ -283,7 +283,7 @@ class VAD:
 
             if start_pos >= 0 and end_pos > 0:
                 count += 1
-                print(f'({count}) speech : {start_pos * self.frame_len:.2f} to {end_pos * self.frame_len:.2f}')
+                logging.debug(f'({count}) speech: {start_pos * self.frame_len:.2f} to {end_pos * self.frame_len:.2f}')
                 speech_ranges.append((start_pos * self.frame_len, end_pos * self.frame_len))
                 start_pos = -0.1
                 end_pos = -0.1
@@ -513,7 +513,7 @@ class Mission2Manager():
             #
             model_start_time = time.time()
 
-            print(f'processing : {file_path}')
+            logging.info(f'processing : {file_path}')
 
             filename, file_extension = os.path.splitext(os.path.basename(file_path))
             wav_path = os.path.join(out_path, f'{filename}.wav')
@@ -531,6 +531,7 @@ class Mission2Manager():
             #
             # Speech Enhancement
             #
+            logging.info('Running Speech Enhancement...')
             model_start_time = time.time()
 
             mixwav_mc, sr = soundfile.read(wav_path)
@@ -553,6 +554,7 @@ class Mission2Manager():
             #
             # VAD
             #
+            logging.info('Running Voice Activity Detection...')
             model_start_time = time.time()
 
             speech_ranges = self.vad_model.inference(enhance_wav_path)
@@ -561,12 +563,12 @@ class Mission2Manager():
 
             dialog_ranges = vad_post_process(speech_ranges)
 
-            print('=== dialog part ===')
+            logging.debug('=== dialog part ===')
             audio_list = []
             for i, dialog_range in enumerate(dialog_ranges):
                 start_time = dialog_range[0]
                 end_time = dialog_range[1]
-                print(f'dialog({i}) : {convert(start_time)} - {convert(end_time)} (duration : {end_time - start_time})')
+                logging.debug(f'dialog({i}) : {convert(start_time)} - {convert(end_time)} (duration : {end_time - start_time})')
 
                 start_frame = int(start_time * sr)
                 end_frame = int(end_time * sr)
@@ -580,6 +582,7 @@ class Mission2Manager():
             #
             # Speech Recognition
             #
+            logging.info('Running Speech Recognition...')
             model_start_time = time.time()
 
             text_list = []
@@ -588,7 +591,7 @@ class Mission2Manager():
 
                 trans = []
                 for segment in result['segments']:
-                    print(f'{segment["start"]} - {segment["end"]} : {segment["text"]}')
+                    logging.debug(f'{segment["start"]} - {segment["end"]} : {segment["text"]}')
                     trans.append(segment["text"])
 
                 text_list.append(' '.join(trans))
@@ -600,21 +603,22 @@ class Mission2Manager():
             #
             # Threat Classifier
             #
+            logging.info('Running Threat Classification...')
             model_start_time = time.time()
 
             pred_list = self.nlp_model.inference(text_list)
-            print(pred_list)
+            logging.debug(pred_list)
 
             model_running_time = time.time() - model_start_time
 
             self.time_dict['nlp']['model_running'] += model_running_time
 
-        print('\n=== Final results ===')
+        logging.info('=== Final results ===')
         out_list = []
         for audio, pred_label in zip(audio_list, pred_list):
             start_time = audio[1]
             end_time = audio[2]
-            print(f'{start_time} - {end_time} : {pred_label}')
+            logging.info(f'{start_time} - {end_time} : {pred_label}')
             out_list.append((start_time, end_time, pred_label))
 
         return out_list

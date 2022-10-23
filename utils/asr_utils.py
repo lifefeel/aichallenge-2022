@@ -215,7 +215,7 @@ def vad_post_process(speech_ranges):
     dialog_ranges = []
     dialog_min_length = 30
 
-    print('=== chunking ===')
+    logging.debug('=== chunking ===')
     for i, speech_range in enumerate(speech_ranges):
         start_time = speech_range[0]
         end_time = speech_range[1]
@@ -228,8 +228,8 @@ def vad_post_process(speech_ranges):
 
         if start_time - last_end > 5:
             # new chunk
-            print(
-                f'  chunk({idx}) : {convert(last_start)} - {convert(last_end)} (duration : {last_end - last_start})')
+            logging.debug(
+                f'  chunk({idx}): {convert(last_start)} - {convert(last_end)} (duration : {last_end - last_start})')
 
             if last_end - last_start > dialog_min_length:
                 dialog_ranges.append((last_start, last_end))

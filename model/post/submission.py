@@ -19,20 +19,27 @@ class MissionSubmission():
             }
         }
 
+    def postprocess_mission1(self, video_results):
+        final_result = video_results['final_result']
+
+        for result in final_result:
+            result['team_id'] = self.team_id
+            result['secret'] = self.secret
+
+        return final_result
+
     def postprocess_mission2(self, video_results, audio_results):
         video_fps = 15
         mission_info = video_results['mission_info']
         frame_results = video_results['frame_results']
         final_result = video_results['final_result']
 
-        assert mission_info['mission'] == 'mission1'
+        assert mission_info['mission'] == '1'
 
         initial_info = mission_info['initial_info']
         info_date = initial_info['date']
         info_start_time = initial_info['start_time']
         info_cam = initial_info['cam']
-
-        info_mission = mission_info['mission']
 
         start_datetime = datetime.strptime(f'{info_date} {info_start_time}', "%Y/%m/%d %H:%M:%S")
 
@@ -307,7 +314,7 @@ class MissionSubmission():
                     except KeyError:
                         gender_count[idx][people_len] = [x_list]
 
-            print(f'group_count : {group_count}')
+            logging.debug(f'group_count : {group_count}')
 
             min_std_idx = -1
             min_std = 10000
@@ -318,20 +325,20 @@ class MissionSubmission():
 
                 data_x = np.array(val)
 
-                print(f'group {key}: ')
-                print(f'mean : {data_x.mean()}')
-                print(f'var : {data_x.var()}')
+                logging.debug(f'group {key}: ')
+                logging.debug(f'mean : {data_x.mean()}')
+                logging.debug(f'var : {data_x.var()}')
 
                 std = data_x.std()
-                print(f'std : {std}')
+                logging.debug(f'std : {std}')
 
                 if std < min_std:
                     min_std = std
                     min_std_idx = key
 
-            print(f'min_std_group : {min_std_idx}')
+            logging.debug(f'min_std_group : {min_std_idx}')
             num_people = argmax_dict(group_count[min_std_idx])
-            print(f'gender_count :{gender_count[min_std_idx][num_people]}')
+            logging.debug(f'gender_count :{gender_count[min_std_idx][num_people]}')
 
             age_gender_list = count_agegender(gender_count[min_std_idx][num_people])
 
@@ -343,14 +350,14 @@ class MissionSubmission():
                 'person_num': num_people
             }
 
-            print('=== Result ===')
-            print(f'total frame count: {total_frame_count}')
-            print(f'related frame count: {related_frame_count}')
-            print(f'num people: {num_people}')
-            print(f'age gender: {age_gender_list}')
-            print(f'last frame time : {frame_results[-1]["frame_number"] / video_fps}')
+            logging.debug('=== Result ===')
+            logging.debug(f'total frame count: {total_frame_count}')
+            logging.debug(f'related frame count: {related_frame_count}')
+            logging.debug(f'num people: {num_people}')
+            logging.debug(f'age gender: {age_gender_list}')
+            logging.debug(f'last frame time : {frame_results[-1]["frame_number"] / video_fps}')
 
-            output = self.generate_answer_sheet(cam_no=info_cam, mission=info_mission, answer=answer)
+            output = self.generate_answer_sheet(cam_no=info_cam, mission=2, answer=answer)
             output_list.append(output)
 
         return output_list
