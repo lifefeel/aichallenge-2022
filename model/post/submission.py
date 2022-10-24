@@ -366,6 +366,57 @@ class MissionSubmission():
 
         return output_list
 
+    def postprocess_mission2_only(self, mission_info, audio_results):
+        video_fps = 15
+
+        assert mission_info['mission'] == '1'
+
+        initial_info = mission_info['initial_info']
+        info_date = initial_info['date']
+        info_start_time = initial_info['start_time']
+        info_cam = initial_info['cam']
+
+        start_datetime = datetime.strptime(f'{info_date} {info_start_time}', "%Y/%m/%d %H:%M:%S")
+
+        logging.debug(f'video_start: {start_datetime}')
+
+        output_list = []
+
+        for audio_result in audio_results:
+            start_time = audio_result[0]
+            end_time = audio_result[1]
+            threat_label = audio_result[2]
+
+            audio_start = start_datetime + timedelta(seconds=start_time)
+            audio_end = start_datetime + timedelta(seconds=end_time)
+
+            logging.debug(f'audio_result: {audio_result}')
+            logging.debug(f'audio_start: {audio_start}')
+            logging.debug(f'audio_end: {audio_end}')
+
+            time_start = audio_start.strftime('%H:%M:%S')
+            time_end = audio_end.strftime('%H:%M:%S')
+
+            # time to frame
+            start_frame = start_time * video_fps
+            end_frame = end_time * video_fps
+
+            logging.debug(f'start_frame : {start_frame}')
+            logging.debug(f'end_frame : {end_frame}')
+
+            answer = {
+                'event': threat_label,
+                'time_start': time_start,
+                'time_end': time_end,
+                'person': ['UNCLEAR'],
+                'person_num': 'UNCLEAR'
+            }
+
+            output = self.generate_answer_sheet(cam_no=info_cam, mission=2, answer=answer)
+            output_list.append(output)
+
+        return output_list
+
     def submit(self, result):
         data = json.dumps(result).encode('unicode-escape')
         req = request.Request(self.api_url, data=data)
