@@ -56,6 +56,9 @@ class MissionSubmission():
             end_time = audio_result[1]
             threat_label = audio_result[2]
 
+            if threat_label == '000001':  # 일반대화
+                continue
+
             audio_start = start_datetime + timedelta(seconds=start_time)
             audio_end = start_datetime + timedelta(seconds=end_time)
 
@@ -386,6 +389,9 @@ class MissionSubmission():
             start_time = audio_result[0]
             end_time = audio_result[1]
             threat_label = audio_result[2]
+
+            if threat_label == '000001':  # 일반대화
+                continue
 
             audio_start = start_datetime + timedelta(seconds=start_time)
             audio_end = start_datetime + timedelta(seconds=end_time)

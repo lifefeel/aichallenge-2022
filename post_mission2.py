@@ -1,11 +1,12 @@
 import logging
 import os
+from pprint import pprint
 
 from model.post.submission import MissionSubmission
 from utils.utils import load_json
 
-TEAM_ID = 'convai'
-SECRET = '3dlZhXRPPyt22tR9'
+TEAM_ID = '1st_isds'
+SECRET = 'FaAJkyJuzlPsFk3f'
 
 
 if __name__ == '__main__':
@@ -25,15 +26,15 @@ if __name__ == '__main__':
     results = submission.postprocess_mission1(video_results)
 
     for result in results:
-        print(result)
-        submission.submit(result)
+        pprint(result)
+        # submission.submit(result)
 
     # exit()
 
-    results = submission.postprocess_mission2(video_results, audio_results)
+    results = submission.postprocess_mission2_only(video_results['mission_info'], audio_results)
 
     for result in results:
-        print(result)
+        pprint(result)
         submission.submit(result)
 
     submission.end_of_mission()
