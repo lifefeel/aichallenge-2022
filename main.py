@@ -2,6 +2,7 @@ import yaml
 import logging
 
 from model.mission2_model import Mission2Manager
+from utils.utils import save_to_json
 
 
 def load_settings(settings_path):
@@ -15,7 +16,8 @@ def main(filepaths, params, file_type='video'):
     manager.load_model()
 
     for filepath in filepaths:
-        manager.run_mission2(file_path=filepath, file_type=file_type)
+        out_list = manager.run_mission2(file_path=filepath, file_type=file_type)
+        save_to_json(out_list, 'mission2_result.json')
 
     manager.print_statistics()
     print('finished')
