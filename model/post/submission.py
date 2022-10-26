@@ -428,11 +428,13 @@ class MissionSubmission():
         req = request.Request(self.api_url, data=data)
         resp = request.urlopen(req)
 
-        status = resp.read().decode('utf8')
-        if "OK" in status:
+        status = eval(resp.read().decode('utf8'))
+        logging.info(f"received message: {status['msg']}")
+
+        if "OK" in status['result']:
             logging.info("Request successful!!")
         else:
-            logging.error('Request error.')
+            raise ValueError(f"submit error: {result}")
 
     def end_of_mission(self):
         logging.info('End of Mission')
