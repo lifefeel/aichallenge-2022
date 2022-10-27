@@ -424,14 +424,14 @@ class MissionSubmission():
         return output_list
 
     def submit(self, result):
-        data = json.dumps(result).encode('unicode-escape')
+        data = json.dumps(result).encode('utf-8')
         req = request.Request(self.api_url, data=data)
         resp = request.urlopen(req)
 
-        status = eval(resp.read().decode('utf8'))
+        status = eval(resp.read().decode('utf-8'))
         logging.info(f"received message: {status['msg']}")
 
-        if "OK" in status['result']:
+        if "OK" in status['status']:
             logging.info("Request successful!!")
         else:
             raise ValueError(f"submit error: {result}")
