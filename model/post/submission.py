@@ -122,14 +122,20 @@ class MissionSubmission():
                 local_age_gender_dict = {}
 
                 for i, result in enumerate(results):
-                    assert len(result.keys()) == 2
+                    assert len(result.keys()) == 3
 
                     label = result['label']
                     position = result['position']
+                    person_id = result['person_id']
 
-                    age_gender = label['age_gender']
-                    age_gender_class = age_gender['class']
-                    age_gender_score = age_gender['score']
+                    try:
+                        age_gender = label['age_gender']
+                        age_gender_class = age_gender['class']
+                        age_gender_score = age_gender['score']
+                    except KeyError:
+                        logging.error(f'age_gender does not exist : {label}')
+                        continue
+
 
                     if age_gender_class == 'Unknown':  # 사람이 아닌 경우 넘어감
                         continue
@@ -422,6 +428,15 @@ class MissionSubmission():
             output_list.append(output)
 
         return output_list
+
+    def postprocess_mission3(self, final_result):
+        # final_result = video_results['final_result']
+
+        for result in final_result:
+            result['team_id'] = self.team_id
+            result['secret'] = self.secret
+
+        return final_result
 
     def submit(self, result):
         data = json.dumps(result).encode('utf-8')
