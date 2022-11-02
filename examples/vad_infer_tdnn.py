@@ -19,18 +19,12 @@ for file in filepaths:
     base_name = os.path.basename(file)
     filename, extension = os.path.splitext(base_name)
 
-    out_path = os.path.join(dest_path, filename)
-    try:
-        os.mkdir(out_path)
-    except FileExistsError:
-        pass
-
     t = tempfile.TemporaryDirectory()
     tmp_path = t.name
 
     input_file = convert_to_16k(file, tmp_path=tmp_path)
 
-    results = vad_tdnn_ims_speech(input_file, out_path, ims_speech_path='ims-speech')
+    results = vad_tdnn_ims_speech(input_file, ims_speech_path='ims-speech')
 
     for result in results:
         start_time, end_time = result
@@ -38,7 +32,3 @@ for file in filepaths:
         print(f'speech: {start_time:.2f} to {end_time:.2f}')
 
     save_to_json(results)
-
-    shutil.rmtree(os.path.join(out_path, 'data'))
-    shutil.rmtree(os.path.join(out_path, 'mfcc_hires'))
-    shutil.rmtree(os.path.join(out_path, 'segmentation'))

@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import os
+import tempfile
 from typing import List
 
 import editdistance
@@ -40,14 +41,16 @@ def split_audio(file, dest_path='./'):
     return outputs
 
 
-def split_audio_ims_speech(file, dest_path, ims_speech_path='ims-speech'):
+def vad_tdnn_ims_speech(file, ims_speech_path='ims-speech'):
+    t = tempfile.TemporaryDirectory()
+    tmp_path = t.name
+
     file = os.path.abspath(file)
-    dest_path = os.path.abspath(dest_path)
     current_dir = os.getcwd()
     os.chdir(ims_speech_path)
 
     vad_file = './vadR1_new.sh'
-    result = subprocess.run([vad_file, file, dest_path], capture_output=True, text=True)
+    result = subprocess.run([vad_file, file, tmp_path], capture_output=True, text=True)
 
     print(result.stdout)
     print(result.stderr)
@@ -55,29 +58,19 @@ def split_audio_ims_speech(file, dest_path, ims_speech_path='ims-speech'):
     os.chdir(current_dir)
 
     # Reading segmentation Result
-    with open(os.path.join(dest_path, "segmentation/output_seg/segments"), 'r') as seg_file:
-        sound_file = AudioSegment.from_wav(file)
+    with open(os.path.join(tmp_path, "segmentation/output_seg/segments"), 'r') as seg_file:
         outputs = []
 
         for i, line in enumerate(seg_file):
             if not line:
                 break
             words = line.split()
-
-            out_file = os.path.join(dest_path, "chunk_{:04d}.wav".format(i))
-
             start_pos = float(words[2])
             end_pos = float(words[3])
 
-            print(f"exporting : {out_file}, {start_pos} - {end_pos}")
-            seg_sound = sound_file[int(start_pos * 1000):int(end_pos * 1000)]
-            seg_sound.export(out_file, format="wav")
-
-            outputs.append((out_file, start_pos, end_pos))
+            outputs.append([start_pos, end_pos])
 
         print(f'segments count : {len(outputs)}')
-        if len(outputs) == 0:
-            outputs.append((file, 0.0, round(sound_file.duration_seconds, 3)))
 
     return outputs
 
@@ -199,6 +192,7 @@ def ffmpeg_extract_wav(input_path, output_path):
 
     output_wav = ffmpeg.output(input_stream.audio, output_path, acodec='pcm_s16le', ac=1, ar='16k')
     output_wav.overwrite_output().run()
+
 
 def convert(seconds):
     min, sec = divmod(seconds, 60)
