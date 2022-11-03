@@ -38,7 +38,7 @@ class MissionSubmission():
         frame_results = video_results['frame_results']
         final_result = video_results['final_result']
 
-        assert mission_info['mission'] == '1'
+        # assert mission_info['mission'] == '1'
 
         initial_info = mission_info['initial_info']
         info_date = initial_info['date']
@@ -57,6 +57,7 @@ class MissionSubmission():
             threat_label = audio_result[2]
 
             if threat_label == '000001':  # 일반대화
+                logging.info('label is 000001, continue')
                 continue
 
             audio_start = start_datetime + timedelta(seconds=start_time)
@@ -76,9 +77,6 @@ class MissionSubmission():
             logging.debug(f'start_frame : {start_frame}')
             logging.debug(f'end_frame : {end_frame}')
 
-            age_gender_dict = {}
-
-            people_count = 0
             group_x_array = {}
             group_count = {
                 0: {},
@@ -122,18 +120,17 @@ class MissionSubmission():
                 local_age_gender_dict = {}
 
                 for i, result in enumerate(results):
-                    assert len(result.keys()) == 3
+                    # assert len(result.keys()) == 3
 
                     label = result['label']
                     position = result['position']
                     person_id = result['person_id']
 
                     try:
-                        age_gender = label['age_gender']
-                        age_gender_class = age_gender['class']
-                        age_gender_score = age_gender['score']
+                        age_gender_class = label['tracking_age_gender_class']
+                        age_gender_score = label['tracking_age_gender_confidence']
                     except KeyError:
-                        logging.error(f'age_gender does not exist : {label}')
+                        logging.warning(f'age_gender does not exist : {label}')
                         continue
 
 
@@ -183,9 +180,11 @@ class MissionSubmission():
                                 position = result['position']
 
                                 if x == position['x']:
-                                    age_gender = label['age_gender']
-                                    age_gender_class = age_gender['class']
-                                    break
+                                    try:
+                                        age_gender_class = label['tracking_age_gender_class']
+                                        break
+                                    except KeyError:
+                                        continue
 
                             try:
                                 local_age_gender_dict[group_num].append(age_gender_class)
@@ -215,9 +214,11 @@ class MissionSubmission():
                                 position = result['position']
 
                                 if x == position['x']:
-                                    age_gender = label['age_gender']
-                                    age_gender_class = age_gender['class']
-                                    break
+                                    try:
+                                        age_gender_class = label['tracking_age_gender_class']
+                                        break
+                                    except KeyError:
+                                        continue
 
                             try:
                                 local_age_gender_dict[group_num].append(age_gender_class)
@@ -257,9 +258,11 @@ class MissionSubmission():
                                 position = result['position']
 
                                 if x == position['x']:
-                                    age_gender = label['age_gender']
-                                    age_gender_class = age_gender['class']
-                                    break
+                                    try:
+                                        age_gender_class = label['tracking_age_gender_class']
+                                        break
+                                    except KeyError:
+                                        continue
 
                             try:
                                 local_age_gender_dict[group_num].append(age_gender_class)
@@ -299,9 +302,11 @@ class MissionSubmission():
                                 position = result['position']
 
                                 if x == position['x']:
-                                    age_gender = label['age_gender']
-                                    age_gender_class = age_gender['class']
-                                    break
+                                    try:
+                                        age_gender_class = label['tracking_age_gender_class']
+                                        break
+                                    except KeyError:
+                                        continue
 
                             try:
                                 local_age_gender_dict[group_num].append(age_gender_class)
@@ -349,19 +354,41 @@ class MissionSubmission():
                     min_std = std
                     min_std_idx = key
 
-            logging.debug(f'min_std_group : {min_std_idx}')
-            num_people = argmax_dict(group_count[min_std_idx])
-            logging.debug(f'gender_count :{gender_count[min_std_idx][num_people]}')
+            try:
+                if min_std_idx != -1:
+                    logging.debug(f'min_std_group : {min_std_idx}')
+                    num_people = argmax_dict(group_count[min_std_idx])
+                    logging.debug(f'gender_count :{gender_count[min_std_idx][num_people]}')
 
-            age_gender_list = count_agegender(gender_count[min_std_idx][num_people])
+                    age_gender_list = count_agegender(gender_count[min_std_idx][num_people])
 
-            answer = {
-                'event': threat_label,
-                'time_start': time_start,
-                'time_end': time_end,
-                'person': convert_agegender(age_gender_list),
-                'person_num': str(num_people)
-            }
+                    answer = {
+                        'event': threat_label,
+                        'time_start': time_start,
+                        'time_end': time_end,
+                        'person': convert_agegender(age_gender_list),
+                        'person_num': str(num_people)
+                    }
+                else:
+                    num_people = 'UNCLEAR'
+                    age_gender_list = []
+                    answer = {
+                        'event': threat_label,
+                        'time_start': time_start,
+                        'time_end': time_end,
+                        'person': ['UNCLEAR'],
+                        'person_num': 'UNCLEAR'
+                    }
+            except (KeyError, IndexError):
+                num_people = 'UNCLEAR'
+                age_gender_list = []
+                answer = {
+                    'event': threat_label,
+                    'time_start': time_start,
+                    'time_end': time_end,
+                    'person': ['UNCLEAR'],
+                    'person_num': 'UNCLEAR'
+                }
 
             logging.debug('=== Result ===')
             logging.debug(f'total frame count: {total_frame_count}')
