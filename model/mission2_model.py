@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+import re
 import tempfile
 import time
 import wave
@@ -17,7 +18,7 @@ import onnxruntime as ort
 from torch.utils.data import DataLoader, TensorDataset, SequentialSampler
 from transformers import ElectraTokenizer
 
-from utils.asr_utils import ffmpeg_extract_wav, convert_to_16k, vad_post_process, convert
+from utils.asr_utils import ffmpeg_extract_wav, convert_to_16k, vad_post_process, convert, vad_tdnn_ims_speech
 
 
 class InputExample(object):
@@ -498,6 +499,7 @@ class Mission2Manager():
         }
 
     def run_mission2(self, file_path, file_type='video'):
+        regex = re.compile('[^0-9a-zA-Z가-힣 ]+')
         wave_paths = []
 
         self.time_dict['pre'] = {
@@ -558,6 +560,7 @@ class Mission2Manager():
             model_start_time = time.time()
 
             speech_ranges = self.vad_model.inference(enhance_wav_path)
+            # speech_ranges = vad_tdnn_ims_speech(enhance_wav_path, ims_speech_path=self.model_params['tdnn_vad']['model_path'])
 
             # save_to_json(speech_ranges, 'vad_infer_result.json')
 
@@ -591,8 +594,10 @@ class Mission2Manager():
 
                 trans = []
                 for segment in result['segments']:
-                    logging.debug(f'{segment["start"]} - {segment["end"]} : {segment["text"]}')
-                    trans.append(segment["text"])
+                    cleaned_text = regex.sub(' ', segment["text"])
+                    cleaned_text = ' '.join(cleaned_text.split())
+                    logging.debug(f'{segment["start"]} - {segment["end"]} : {segment["text"]} ({cleaned_text})')
+                    trans.append(cleaned_text)
 
                 text_list.append(' '.join(trans))
 
