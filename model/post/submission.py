@@ -362,13 +362,22 @@ class MissionSubmission():
 
                     age_gender_list = count_agegender(gender_count[min_std_idx][num_people])
 
-                    answer = {
-                        'event': threat_label,
-                        'time_start': time_start,
-                        'time_end': time_end,
-                        'person': convert_agegender(age_gender_list),
-                        'person_num': str(num_people)
-                    }
+                    if num_people <= 3:
+                        answer = {
+                            'event': threat_label,
+                            'time_start': time_start,
+                            'time_end': time_end,
+                            'person': convert_agegender(age_gender_list),
+                            'person_num': str(num_people)
+                        }
+                    else:
+                        answer = {
+                            'event': threat_label,
+                            'time_start': time_start,
+                            'time_end': time_end,
+                            'person': ['UNCLEAR'],
+                            'person_num': str(num_people)
+                        }
                 else:
                     num_people = 'UNCLEAR'
                     age_gender_list = []
