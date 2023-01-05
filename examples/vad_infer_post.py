@@ -15,6 +15,7 @@ last_end = 0
 
 idx = 0
 dialog_ranges = []
+dialog_min_length = 30
 
 print('=== chunking ===')
 for i, speech_range in enumerate(speech_ranges):
@@ -31,7 +32,7 @@ for i, speech_range in enumerate(speech_ranges):
         # new chunk
         print(f'  chunk({idx}) : {convert(last_start)} - {convert(last_end)} (duration : {last_end - last_start})')
 
-        if last_end - last_start > 30:
+        if last_end - last_start > dialog_min_length:
             dialog_ranges.append((last_start, last_end))
 
         last_start = start_time
@@ -43,11 +44,11 @@ for i, speech_range in enumerate(speech_ranges):
         # concat
         last_end = end_time
 
-if last_end - last_start > 30:
+if last_end - last_start > dialog_min_length:
     dialog_ranges.append((last_start, last_end))
 
 print('=== dialog part ===')
 for i, dialog_range in enumerate(dialog_ranges):
     start_time = dialog_range[0]
     end_time = dialog_range[1]
-    print(f'dialog({i}) : {convert(start_time)} - {convert(end_time)}')
+    print(f'dialog({i}) : {convert(start_time)} - {convert(end_time)} (duration : {end_time - start_time})')

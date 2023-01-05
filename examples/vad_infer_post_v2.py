@@ -1,5 +1,3 @@
-import whisper
-
 from utils.utils import load_json
 
 
@@ -18,7 +16,7 @@ last_end = 0
 idx = 0
 dialog_ranges = []
 long_ranges = []
-dialog_min_length = 20
+dialog_min_length = 30
 long_speech_threshold = 0.5
 
 print('=== long range ===')
@@ -107,9 +105,6 @@ print(f'  chunk({idx}) : {convert(last_start)} - {convert(last_end)} (duration :
 
 if last_end - last_start > dialog_min_length:
     dialog_ranges.append((last_start, last_end))
-
-audio_list = []
-wav_path = '/root/sogang_asr/data/grand2022/sample_final/test1.wav'
 
 print('=== dialog part ===')
 for i, dialog_range in enumerate(dialog_ranges):

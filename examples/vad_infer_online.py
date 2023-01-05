@@ -1,11 +1,10 @@
 import numpy as np
-# import pyaudio as pa
-import os, time
 import librosa
 import matplotlib.pyplot as plt
 
-import nemo
 import nemo.collections.asr as nemo_asr
+
+from utils.utils import save_to_json
 
 # sample rate, Hz
 SAMPLE_RATE = 16000
@@ -171,18 +170,12 @@ def offline_inference(wave_file, STEP=0.025, WINDOW_SIZE=0.5, threshold=0.5):
         offset=0)
 
     wf = wave.open(wave_file, 'rb')
-    # p = pa.PyAudio()
 
     empty_counter = 0
 
     preds = []
     proba_b = []
     proba_s = []
-
-    #     stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
-    #                     channels=CHANNELS,
-    #                     rate=RATE,
-    #                     output = True)
 
     data = wf.readframes(CHUNK_SIZE)
 
@@ -210,11 +203,7 @@ def offline_inference(wave_file, STEP=0.025, WINDOW_SIZE=0.5, threshold=0.5):
     return preds, proba_b, proba_s
 
 
-# demo_wave = '../../data/sample_data_16k/test_1.wav'
-# demo_wave = '../../data/track2_test_data_16k/t2_002.wav'
-# demo_wave = '../../../data/noise_speech_sample_16k/01_05_049047_211123_SD Copy.wav'
-# demo_wave = '../../../data/grand2022/grandchallenge_3.wav'
-demo_wave = '/root/sogang_asr/data/grand2022/sample_cam1/cam1_02_enhance.wav'
+demo_wave = '../sample_data/cam1_02_enhance.wav'
 
 wave_file = demo_wave
 
@@ -228,10 +217,8 @@ threshold=0.3
 
 results = []
 
-# STEP_LIST = [0.1, 0.15, 0.2]
-# WINDOW_SIZE_LIST = [0.5, 0.5, 0.5]
-STEP_LIST = [0.1]
-WINDOW_SIZE_LIST = [0.25]
+STEP_LIST = [0.25]
+WINDOW_SIZE_LIST = [0.5]
 
 for STEP, WINDOW_SIZE in zip(STEP_LIST, WINDOW_SIZE_LIST, ):
     print(f'====== STEP is {STEP}s, WINDOW_SIZE is {WINDOW_SIZE}s ====== ')
@@ -240,6 +227,8 @@ for STEP, WINDOW_SIZE in zip(STEP_LIST, WINDOW_SIZE_LIST, ):
 
 # exit()
 num = len(results)
+speech_ranges = []
+
 for i in range(num):
     step = STEP_LIST[i]
     win_size = WINDOW_SIZE_LIST[i]
@@ -264,14 +253,14 @@ for i in range(num):
         if start_pos >= 0 and end_pos > 0:
             count += 1
             print(f'({count}) speech : {start_pos * step:.2f} to {end_pos * step:.2f}')
+            speech_ranges.append((start_pos * step, end_pos * step))
             start_pos = -0.1
             end_pos = -0.1
 
-# exit()
 
+save_to_json(speech_ranges, 'vad_infer_result.json')
 
 import librosa.display
-
 plt.figure(figsize=[20, 10])
 
 num = len(results)
