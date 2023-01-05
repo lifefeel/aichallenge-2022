@@ -19,6 +19,7 @@ def main(filepaths, params, file_type='video'):
     manager.load_model()
 
     for filepath in filepaths:
+        logging.info(f'File - {filepath}')
         out_list = manager.run_mission2(file_path=filepath, file_type=file_type)
         save_to_json(out_list, 'mission2_result.json')
 

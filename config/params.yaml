@@ -10,7 +10,7 @@ model:
     threshold: 0.3
     gpu: 0
   speech_recognition:
-    model_path: trained_models/whisper_model/base.pt
+    model_path: trained_models/whisper_model/small.pt
     gpu: 0
   threat_classification:
     model_path: trained_models/threat_model/newnewtrain_kcelectra_fp16.onnx
