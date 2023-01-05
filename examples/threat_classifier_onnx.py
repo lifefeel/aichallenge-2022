@@ -77,8 +77,8 @@ def evaluate(session, eval_dataset, device):
     return pred_list
 
 
-output_dir = "/root/sogang_asr/threat_model/baseline-kcelectra-newnew_train"
-export_model_path = os.path.join(output_dir, 'newnewtrain_kcelectra.onnx')
+output_dir = "../trained_models/threat_model"
+export_model_path = os.path.join(output_dir, 'newnewtrain_kcelectra_fp16.onnx')
 
 start = time.time()
 # ONNX model inference
@@ -91,7 +91,7 @@ EP_list = [
 session = ort.InferenceSession(export_model_path, opt, providers=EP_list)
 
 # load dataset
-test_set = open('/root/sogang_asr/threat_model/newnew_sample_100.txt', 'r', encoding='utf-8').readlines()
+test_set = open(os.path.join(output_dir, 'newnew_sample_100.txt'), 'r', encoding='utf-8').readlines()
 test_dataset = load_data(test_set)
 print(test_dataset)
 print("time: ", time.time() - start)

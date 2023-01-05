@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 class InputExample(object):
     """A single training/test example for simple sequence classification."""
+
     def __init__(self, text, label):
         self.text = text
         self.label = label
@@ -15,6 +16,7 @@ class InputExample(object):
 
 class InputFeatures(object):
     """A single set of features of data."""
+
     def __init__(self, input_ids, attention_mask, token_type_ids, label):
         self.input_ids = input_ids
         self.attention_mask = attention_mask
@@ -23,12 +25,12 @@ class InputFeatures(object):
 
 
 def create_examples(lines):
-    examples=[]
+    examples = []
     for (i, line) in enumerate(lines):
         try:
-            line=line.split('\t')
-            text=line[0].strip()
-            label=line[1].strip()
+            line = line.split('\t')
+            text = line[0].strip()
+            label = line[1].strip()
         except:
             continue
         examples.append(InputExample(text=text, label=label))
@@ -37,12 +39,11 @@ def create_examples(lines):
 
 def seq_cls_convert_examples_to_features(examples):
     label_list = ["020121", "000001", "02051", "020811", "020819"]
-    model_name_or_path = "beomi/KcELECTRA-base"
-    max_length=512
+    max_length = 512
 
     label_map = {label: i for i, label in enumerate(label_list)}
     labels = [label_map[example.label] for example in examples]
-    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, do_lower_case=False)
+    tokenizer = AutoTokenizer.from_pretrained("beomi/KcELECTRA-base")
 
     batch_encoding = tokenizer.batch_encode_plus(
         [str(example.text) for example in examples],
@@ -71,9 +72,7 @@ def seq_cls_convert_examples_to_features(examples):
 
 
 def seq_cls_load_and_cache_examples(data):
-    #print(data[:5])
-    examples=create_examples(data)
-    #print(examples[:5])
+    examples = create_examples(data)
     features = seq_cls_convert_examples_to_features(examples)
 
     # Convert to Tensors and build dataset
