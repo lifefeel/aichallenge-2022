@@ -2,11 +2,10 @@ import os
 import time
 from glob import glob
 
+import soundfile
 import whisper
 
-from utils.asr_utils import get_duration
-
-model = whisper.load_model("medium")
+model = whisper.load_model("base")
 
 print('model loaded.')
 
@@ -15,7 +14,7 @@ options = {
     'language': 'Korean'
 }
 
-data_root = '/root/sogang_asr/data/grand2022/sample_cam1'
+data_root = '../sample_data'
 
 todal_audio_duration = 0.0
 start_time = time.time()
@@ -24,12 +23,10 @@ start_time = time.time()
 input_files = glob(os.path.join(data_root, '*.wav'))
 wav_files = sorted(input_files)
 
-# files = ['cam1_02.wav', 'cam1_05.wav', 'cam1_06.wav']
-
 for filepath in wav_files:
-    # filepath = os.path.join(data_root, file)
-    todal_audio_duration += get_duration(filepath)
-    result = model.transcribe(filepath, **options)
+    audio, sr = soundfile.read(filepath, dtype='float32')
+    todal_audio_duration += len(audio) / float(sr)
+    result = model.transcribe(audio, **options)
 
     print(filepath)
 
