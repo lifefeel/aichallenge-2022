@@ -1,3 +1,6 @@
+import os
+from glob import glob
+
 import yaml
 import logging
 
@@ -30,15 +33,7 @@ if __name__ == '__main__':
 
     params_path = 'config/params.yaml'
     params = load_settings(params_path)
-    filepaths = [
-        '/root/sogang_asr/data/grand2022/cam1_short.mp4',
-        '/root/sogang_asr/data/grand2022/cam1_all_noise_unique_v2.mp4',
-        # '/root/sogang_asr/data/grand2022/cam1_all_noise_30min_v2.mp4',
-    ]
-    main(filepaths, params, file_type='video')
 
-    # filepaths = [
-    #     '/root/sogang_asr/data/grand2022/speech_noise_mixdown_004.wav'
-    # ]
-    #
-    # main(filepaths, params, file_type='audio')
+    data_root = 'sample_data'
+    filepaths = glob(os.path.join(data_root, '*.wav'))
+    main(filepaths, params, file_type='audio')

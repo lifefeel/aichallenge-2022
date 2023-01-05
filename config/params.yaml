@@ -1,18 +1,18 @@
 model:
   speech_enhancement:
-    config_path: /root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/config.yaml
-    model_path: /root/sogang_asr/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/5epoch.pth
+    config_path: trained_models/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/config.yaml
+    model_path: trained_models/enh_model_sc/exp/enh_train_enh_conv_tasnet_raw/5epoch.pth
     gpu: 0
   vad:
-    model_path: /root/sogang_asr/nemo_model/vad_marblenet.nemo
+    model_path: trained_models/vad_model/vad_marblenet.nemo
     window_size: 0.5
     frame_len: 0.25
     threshold: 0.3
     gpu: 0
   speech_recognition:
-    model_path: /root/sogang_asr/whisper_model/medium.pt
+    model_path: trained_models/whisper_model/base.pt
     gpu: 0
   threat_classification:
-    model_path: /root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/newnewtrain_kcelectra_fp16.onnx
-    tokenizer_path: /root/sogang_asr/threat_model/baseline-kcelectra-newnew_train/tokenizer
+    model_path: trained_models/threat_model/newnewtrain_kcelectra_fp16.onnx
+    tokenizer_path: trained_models/threat_model/tokenizer
     gpu: 0
