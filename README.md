@@ -28,7 +28,7 @@ pip install -r requirements.txt
 
 ### 모델 다운로드
 
-모델을 [다운로드](https://drive.google.com/file/d/1d0o_SLqCZ0GOdYiPBPbjTvkufaN8KAwo/view?usp=share_link) 하셔서 프로젝트 하위폴더에 아래와 같이 압축을 풀어 저장합니다.
+모델을 [다운로드](https://sogang365-my.sharepoint.com/:u:/g/personal/jplee_o365_sogang_ac_kr/ETaSZCQAjQhAjYejWBkJd88BFX4an_dkShwcZndxIc6iYA?e=FLWydl) 하셔서 프로젝트 하위폴더에 아래와 같이 압축을 풀어 저장합니다.
 
 ```
 └─trained_models
