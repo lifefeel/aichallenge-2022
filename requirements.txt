@@ -14,3 +14,11 @@ transformers
 editdistance
 pydub
 git+https://github.com/openai/whisper.git
+numba==0.50
+numpy==1.23
+resampy==0.3.1
+jiwer
+torchaudio
+onnxruntime
+fastprogress
+jupyterlab
